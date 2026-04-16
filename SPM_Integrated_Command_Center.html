@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>SPM Integrated Command Center</title>
+  <style>
+    :root {
+      --bg: #0f140f;
+      --panel: rgba(17, 24, 17, 0.95);
+      --line: rgba(255, 153, 51, 0.16);
+      --line-strong: rgba(255, 153, 51, 0.35);
+      --orange-soft: rgba(255, 153, 51, 0.13);
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(0, 255, 136, 0.10), transparent 28%),
+        radial-gradient(circle at top right, rgba(255, 153, 51, 0.14), transparent 34%),
+        linear-gradient(180deg, #111811, #0f140f 46%, #0c120d);
+      overflow: hidden;
+    }
+    .gridlines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.07;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+    .app {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 10px;
+      min-height: 100vh;
+      padding: 10px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .modebar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px;
+    }
+    button {
+      appearance: none;
+      border: 1px solid transparent;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      min-height: 48px;
+      color: rgba(238, 247, 238, 0.82);
+      background: rgba(255,255,255,0.05);
+    }
+    .modebar button.active {
+      border-color: var(--line-strong);
+      background: var(--orange-soft);
+      color: #ffd8af;
+    }
+    .viewer {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(255,153,51,0.08), transparent 24%),
+        radial-gradient(circle at 80% 10%, rgba(0,255,136,0.05), transparent 26%);
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      min-height: calc(100vh - 76px);
+      border: 0;
+      background: #091009;
+    }
+    @media (max-width: 480px) {
+      .app {
+        padding: 8px;
+        gap: 8px;
+      }
+      .modebar {
+        padding: 8px;
+      }
+      button {
+        flex: 1 1 100%;
+        min-height: 52px;
+      }
+      iframe {
+        min-height: calc(100vh - 124px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="gridlines" aria-hidden="true"></div>
+  <div class="app">
+    <section class="panel modebar">
+      <button id="singleBtn" class="active" type="button">OPTION A: SINGLE ANALYSIS</button>
+      <button id="bulkBtn" type="button">OPTION B: BULK ANALYSIS</button>
+    </section>
+    <main class="panel viewer">
+      <iframe id="workspaceFrame" src="about:blank" title="SPM Analysis Workspace"></iframe>
+    </main>
+  </div>
+  <script>
+    const frame = document.getElementById('workspaceFrame');
+    const singleBtn = document.getElementById('singleBtn');
+    const bulkBtn = document.getElementById('bulkBtn');
+    const docs = {
+      single: 'SPM_Malda_Division.html',
+      bulk: 'SPM_FINAL_SINGLE_FILE.html'
+    };
+
+    function openMode(mode) {
+      singleBtn.classList.toggle('active', mode === 'single');
+      bulkBtn.classList.toggle('active', mode === 'bulk');
+      frame.src = docs[mode];
+    }
+
+    singleBtn.addEventListener('click', () => openMode('single'));
+    bulkBtn.addEventListener('click', () => openMode('bulk'));
+    openMode('single');
+  </script>
+</body>
+</html>

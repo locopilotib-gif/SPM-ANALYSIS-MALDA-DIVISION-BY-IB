@@ -1,0 +1,2239 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPM ANALYSIS MALDA DIVISION by IMAN BISWAS (Time Fixed + DOJ)</title>
+    
+    <link rel="stylesheet" href="./vendor/leaflet.css" />
+    
+    
+    <script src="./vendor/chart.js"></script>
+    <script src="./vendor/hammer.min.js"></script>
+    <script src="./vendor/chartjs-plugin-zoom.min.js"></script>
+    
+    <script src="./vendor/html2canvas.min.js"></script>
+    <script src="./vendor/html2pdf.bundle.min.js"></script>
+    <script src="./vendor/leaflet.js"></script>
+    <script src="./vendor/xlsx.full.min.js"></script>
+    <script src="./vendor/jszip.min.js"></script>
+    <script src="./vendor/pdf.min.js"></script>
+    
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Roboto', sans-serif; overflow: hidden; background: #1a1a1a; }
+        #map { height: 100vh; width: 100vw; z-index: 1; background: #202020; }
+        
+        /* --- UI PANEL --- */
+        .controls {
+            position: absolute; top: 20px; left: 20px; 
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            z-index: 1000; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 320px;
+            color: #fff;
+            max-height: 90vh; 
+            overflow-y: auto;
+        }
+        
+        h3 { margin-top: 0; color: #4db8ff; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .section { margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+        
+        label { font-weight: 500; font-size: 13px; display: block; margin-bottom: 5px; color: #ddd; }
+        input[type="file"], select, input[type="text"] { width: 100%; margin-top: 5px; font-size: 12px; color: #fff; background: #333; border: 1px solid #555; padding: 5px; border-radius: 4px; box-sizing: border-box; }
+        
+        button {
+            width: 100%; background: #00ff88; color: #000; border: none; padding: 10px; 
+            font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 10px;
+            transition: background 0.2s;
+        }
+        button:hover { background: #00cc6a; }
+        
+        .btn-secondary { background: #4db8ff; color: #000; margin-top: 5px; }
+        .btn-secondary:hover { background: #3399cc; }
+        .btn-purple { background: #9933ff; color: #fff; margin-top: 5px; }
+        .btn-snap { background: #ff55aa; color: #fff; margin-top: 5px; }
+        .btn-print { background: #ffaa00; color: #000; margin-top: 15px; }
+        .btn-warn { background: #ff3333; color: #fff; margin-top: 5px; }
+        .btn-caution { background: #ffaa00; color: #000; margin-top: 5px; } 
+        .btn-save { background: #444; color: #fff; border: 1px solid #777; width: 48%; }
+
+        /* MODAL */
+        .modal {
+            display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; 
+            background-color: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+        }
+        .modal-content {
+            background-color: #2a2a2a; margin: 2% auto; padding: 20px; border: 1px solid #555; 
+            width: 95%; height: 90%; border-radius: 10px; position: relative; color: #fff;
+            overflow: hidden; display: flex; flex-direction: column;
+        }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: #fff; }
+        
+        .dashboard-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        .dashboard-table th, .dashboard-table td { border: 1px solid #555; padding: 10px; text-align: center; }
+        .dashboard-table th { background-color: #444; color: #4db8ff; }
+        .dashboard-table tr:nth-child(even) { background-color: #333; }
+        .dashboard-table tr:hover { background-color: #444; }
+
+        .report-card { background: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 13px; }
+        .report-item { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .status-pass { color: #00ff88; font-weight: bold; }
+        .status-fail { color: #ff3333; font-weight: bold; }
+
+        .legend div { margin-bottom: 6px; display: flex; align-items: center; font-size: 12px; }
+        .dot { height: 10px; width: 10px; display: inline-block; border-radius: 50%; margin-right: 8px; }
+        .line-segment { width: 25px; height: 4px; display: inline-block; margin-right: 8px; border-radius: 2px; }
+        
+        #status { font-weight: bold; font-size: 13px; color: #bbb; margin-top: 5px; }
+        
+        .leaflet-popup-content-wrapper { background: rgba(30, 30, 30, 0.98); color: #fff; border: 1px solid #444; padding: 0; }
+        .leaflet-popup-content { margin: 10px; width: 340px !important; }
+        .leaflet-popup-tip { background: rgba(30, 30, 30, 0.98); }
+        .graph-container { width: 320px; height: 220px; }
+        .modal-graph-container { width: 100%; flex-grow: 1; position: relative; cursor: grab; }
+        
+        .crew-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px; }
+        .crew-box { border: 1px solid #555; padding: 15px; border-radius: 8px; background: #333; }
+        .crew-box h4 { margin-top: 0; color: #ffd700; border-bottom: 1px solid #666; padding-bottom: 5px; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { color: #aaa; margin-bottom: 2px; }
+        .form-group input { width: 100%; background: #222; border: 1px solid #444; color: #fff; padding: 6px; }
+        .form-group input:focus { border-color: #00ff88; outline: none; }
+
+        #printableReport { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; color: black; z-index: 100000; overflow-y: auto; font-family: 'Times New Roman', serif; }
+        .report-content-wrapper { width: 210mm; min-height: 297mm; margin: 0 auto; background: white; padding: 10mm; box-sizing: border-box; }
+        .page-break { page-break-before: always; margin-top: 20px; display: block; clear: both; }
+        .report-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 15px; }
+        .report-header h1 { margin: 0; font-size: 20px; text-transform: uppercase; }
+        .report-header h3 { color: #333; margin: 5px 0; font-size: 14px; border: none; }
+        .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        .report-box { border: 1px solid #999; padding: 8px; }
+        .report-box h4 { margin-top: 0; background: #eee; padding: 4px; border-bottom: 1px solid #999; font-size: 13px; }
+        .report-box table { font-size: 14px; width: 100%; border-collapse: collapse; } 
+        .crew-report-table td { padding: 4px; border: 1px solid #ccc; font-size: 12px; }
+        .crew-report-table th { padding: 4px; border: 1px solid #ccc; background: #f0f0f0; font-size: 12px; font-weight: bold; text-align: left; }
+        table.report-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px; table-layout: fixed; }
+        table.report-table th, table.report-table td { border: 1px solid #999; padding: 4px; text-align: center; vertical-align: middle; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; }
+        table.report-table th { background: #ddd; font-weight: bold; font-size: 12px; }
+        .col-small { width: 8%; } .col-time { width: 12%; } .col-med { width: 14%; } .col-speed { width: 12%; }
+        .pass-badge { background: #ccffcc; color: #006600; padding: 2px 5px; border-radius: 4px; font-weight: bold; }
+        .fail-badge { background: #ffcccc; color: #990000; padding: 2px 5px; border-radius: 4px; font-weight: bold; }
+        .graph-page-container { width: 100%; height: 900px; position: relative; display: flex; align-items: center; justify-content: center; }
+        .report-chart-box { width: 800px; height: 550px; border: 1px solid #ccc; padding: 10px; transform: rotate(90deg); transform-origin: center; }
+        
+        .snapshot-page-container { display: flex; flex-direction: column; justify-content: flex-start; height: 980px; width: 100%; page-break-after: always; padding: 10px 0; box-sizing: border-box; }
+        .snapshot-heading { flex-shrink: 0; text-align: center; margin: 0 0 15px 0; padding-bottom: 5px; border-bottom: 2px solid #444; }
+        .snapshot-item { border: 1px solid #ccc; padding: 4px; display: flex; flex-direction: column; flex-grow: 1; margin-bottom: 15px; box-sizing: border-box; background: #fff; overflow: hidden; }
+        .snapshot-item:last-child { margin-bottom: 0; }
+        .snapshot-img-box { flex-grow: 1; height: 0; min-height: 100px; overflow: hidden; border-bottom: 1px solid #eee; display: flex; justify-content: center; align-items: center; background: #f9f9f9; }
+        .snapshot-img-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .snapshot-comment { padding: 5px; font-size: 12px; background: #f0f0f0; font-weight: bold; color: #000; flex-shrink: 0; border-top: 1px solid #ddd; }
+        
+        .graph-tools { text-align: right; padding-bottom: 10px; border-bottom: 1px solid #444; margin-bottom: 10px; }
+        .graph-tools button { width: auto; padding: 5px 15px; margin: 0 5px; font-size: 12px; }
+        .controls > h3,
+        #status,
+        .legend {
+            display: none !important;
+        }
+
+        @media (max-width: 480px) {
+            body { overflow: auto; }
+            .controls {
+                top: 8px;
+                left: 8px;
+                right: 8px;
+                width: auto;
+                max-height: 56vh;
+                padding: 12px;
+                border-radius: 10px;
+            }
+            #map {
+                height: 100dvh;
+                width: 100vw;
+            }
+            .modal-content {
+                width: calc(100% - 12px);
+                height: calc(100% - 12px);
+                margin: 6px auto;
+                padding: 12px;
+            }
+            .crew-grid,
+            .report-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            .dashboard-table th,
+            .dashboard-table td,
+            .crew-report-table th,
+            .crew-report-table td,
+            table.report-table th,
+            table.report-table td {
+                font-size: 10px;
+                padding: 3px;
+            }
+        }
+
+    </style>
+    <style id="light-theme-override-malda">
+        body { background: #f4f8fc !important; }
+        #map { background: #eaf2f8 !important; }
+        .controls {
+            background: rgba(255, 255, 255, 0.97) !important;
+            color: #1f2937 !important;
+            border: 1px solid #d6e4ee !important;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12) !important;
+        }
+        h3 { color: #0a5f8a !important; border-bottom-color: #dce9f2 !important; }
+        .section { border-bottom-color: #e2edf5 !important; }
+        label, #status, .legend div, .form-group label { color: #334155 !important; }
+        input[type="file"], select, input[type="text"] {
+            color: #1f2937 !important;
+            background: #ffffff !important;
+            border: 1px solid #cfdbe6 !important;
+        }
+        button, .btn-secondary, .btn-purple, .btn-snap, .btn-print, .btn-warn, .btn-caution, .btn-save {
+            background: linear-gradient(120deg, #eef8ff, #fff4e8) !important;
+            color: #1f2937 !important;
+            border: 1px solid #d7e4ee !important;
+        }
+        .modal { background-color: rgba(15, 23, 42, 0.45) !important; }
+        .modal-content, .crew-box {
+            background: #ffffff !important;
+            color: #1f2937 !important;
+            border-color: #d7e4ee !important;
+        }
+        .dashboard-table th { background-color: #dcedf8 !important; color: #1f2937 !important; }
+        .dashboard-table th, .dashboard-table td { border-color: #d7e4ee !important; }
+        .dashboard-table tr:nth-child(even), .dashboard-table tr:hover { background-color: #f6fbff !important; }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+            background: #ffffff !important;
+            color: #1f2937 !important;
+            border-color: #d7e4ee !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <h3>SPM ANALYSIS MALDA DIVISION<br><span style="font-size:13px; color:rgba(213, 235, 255, 0.18);">BY IMAN BISWAS</span></h3>
+        
+        <div class="section" style="border-top: 1px solid #555; padding-top: 10px; margin-bottom: 10px;">
+            <label style="color: #ffd700;"> Project Workspace</label>
+            <div style="display:flex; gap: 5px;">
+                <button onclick="saveProject()" class="btn-save"> Save</button>
+                <button onclick="document.getElementById('projectUpload').click()" class="btn-save"> Open</button>
+            </div>
+            <input type="file" id="projectUpload" accept=".json, .sanket" style="display:none;" onchange="loadProject(this)" />
+        </div>
+
+        <div class="section" style="display:none; border: 1px dashed #00ff88; padding: 10px; background: rgba(0, 255, 136, 0.05); margin-bottom: 15px;">
+            <label style="color: #00ff88; font-weight:bold; cursor:pointer;"> Smart Upload (All Files)</label>
+            <div style="font-size:10px; color:#aaa; margin-bottom:5px;">Select all files (Signals, Mast, CD, Log) together</div>
+            <input type="file" id="bulkUpload" multiple accept=".xlsx, .xls, .csv" />
+            <div id="bulkStatus" style="font-size:11px; margin-top:5px; color:#bbb;">Waiting...</div>
+        </div>
+
+        <div class="section">
+            <label>1. Train Type (For BPT & Caution)</label>
+            <select id="trainType">
+                <option value="GOODS">Goods Train (40-50 Kmph)</option>
+                <option value="COACHING">Coaching / MEMU (60-70 Kmph)</option>
+            </select>
+        </div>
+
+        <div class="section">
+            <label>2a. Upload Signals (Ref)</label>
+            <input type="file" id="signalUpload" accept=".xlsx,.xls,.csv" />
+            <div id="signalStatus" style="font-size:11px; color:#bbb;">Waiting...</div>
+        </div>
+        <div class="section">
+            <label>2a. SNT Data Input</label>
+            <input type="file" id="sntUpload" multiple accept=".zip,.csv,.xls,.xlsx,.xlsm,.xlsb,.xltx,.xltm,.ods" />
+            <div id="sntStatus" style="font-size:11px; color:#bbb;">Waiting...</div>
+        </div>
+
+        <div class="section" style="display:none;">
+            <label>2b. Upload Mast Data (Optional)</label>
+            <input type="file" id="mastUpload" accept=".xlsx, .csv" />
+            <div id="mastStatus" style="font-size:11px; color:#bbb;">Not Uploaded (Optional)</div>
+        </div>
+
+        <div class="section" style="display:none;">
+            <label>2c. Upload Caution Order (Optional)</label>
+            <input type="file" id="cdUpload" accept=".xlsx, .csv" />
+            <div id="cdStatus" style="font-size:11px; color:#bbb;">Not Uploaded (Optional)</div>
+        </div>
+        <div class="section" style="display:none;">
+            <label>2d. Upload FSD Routes GPS Reference</label>
+            <input type="file" id="fsdInput" multiple accept=".zip,.csv,.xls,.xlsx,.xlsm,.xlsb,.xltx,.xltm,.ods" />
+            <div id="fsdStatus" style="font-size:11px; color:#bbb;">Not Uploaded (Optional)</div>
+            <button class="btn-caution" onclick="clearFsdReference()">Clear FSD Route Overlay</button>
+        </div>
+        <div class="section">
+            <label>1. RTIS Input</label>
+            <input type="file" id="logUpload" accept=".xlsx, .xls, .csv" />
+        </div>
+
+        <div class="section" id="stationSelectDiv" style="display:none;">
+            <label>From Station:</label>
+            <select id="fromStation"></select>
+            <label style="margin-top:10px;">To Station:</label>
+            <select id="toStation"></select>
+            <button onclick="filterAndPlot()">Show Route</button>
+        </div>
+        
+        <div id="analysisButtons" style="display:none; border-top: 1px solid #444; padding-top:10px;">
+            <label>Map Tools:</label>
+            <button class="btn-snap" id="snapBtn" onclick="captureSnapshot()"> Add Map View to Report</button>
+            <div id="snapCount" style="font-size:11px; text-align:right; color:#bbb; margin-bottom:10px;">Snapshots taken: 0</div>
+
+            <label>Advanced Analysis:</label>
+            <button class="btn-secondary" onclick="showAggregateGraph()"> Compare All Stops</button>
+            <button class="btn-secondary" onclick="showStoppageTable()"> Stoppage Analysis Details</button>
+            <button class="btn-caution" onclick="showCautionModal()"> Caution Order Details</button>
+            <button class="btn-purple" onclick="showFullJourneyGraph()"> Speed vs Dist (Full Journey)</button>
+            
+            <label style="margin-top:10px; color:#ff3333;">Overspeed Analysis:</label>
+            <div style="display:flex; gap:5px;">
+                <select id="mpsSelect" style="margin-top:0;">
+                    <option value="130">130 Kmph</option>
+                    <option value="110">110 Kmph</option>
+                    <option value="100">100 Kmph</option>
+                    <option value="75">75 Kmph</option>
+                    <option value="60">60 Kmph</option>
+                    <option value="30">30 Kmph</option>
+                </select>
+                <button class="btn-warn" style="margin-top:0;" onclick="checkOverspeed()"> Check</button>
+            </div>
+            
+            <button class="btn-print" id="printBtn" onclick="finalizeReport('pdf_visual')"> Generate PDF Report</button>
+            <button class="btn-secondary" onclick="finalizeReport('word')"> Generate Word Report</button>
+            <button class="btn-secondary" onclick="openCrewModal()"> Crew & Report Setup</button>
+        </div>
+
+        <div id="testReport" class="report-card" style="display:none;">
+            <div class="report-item">
+                <span>Brake Feel Test:</span>
+                <span id="bftStatus" class="status-fail">Waiting...</span>
+            </div>
+            <div class="report-item">
+                <span>Brake Power Test:</span>
+                <span id="bptStatus" class="status-fail">Waiting...</span>
+            </div>
+        </div>
+
+        <div id="status" style="margin-top:10px;">Waiting...</div>
+
+        <div class="legend" style="margin-top:15px;">
+            <div><span class="dot" style="background:#00ff00;"></span> Start</div>
+            <div><span class="dot" style="background:#ff0000;"></span> End</div>
+            <div><span class="dot" style="background:#4db8ff;"></span> Train Stop</div>
+            <div style="display:flex; align-items:center;">
+                <svg width="15" height="15" viewBox="0 0 30 50" style="margin-right:8px;">
+                    <rect x="13" y="20" width="4" height="30" fill="#666" stroke="#333" stroke-width="1"/>
+                    <rect x="5" y="0" width="20" height="25" rx="3" fill="#333" stroke="#fff" stroke-width="1"/>
+                    <circle cx="15" cy="6" r="3" fill="#ff3333"/><circle cx="15" cy="12.5" r="3" fill="#ffaa00"/><circle cx="15" cy="19" r="3" fill="#33cc33"/>
+                </svg> Signal
+            </div>
+            <div><span class="line-segment" style="background:#FFFF00;"></span> Brake Feel Path</div>
+            <div><span class="line-segment" style="background:#9933ff;"></span> Brake Power Path</div>
+            <div><span class="line-segment" style="background:#00FFFF; box-shadow:0 0 5px #00FFFF;"></span> Overspeed (>MPS)</div>
+            <div><span class="line-segment" style="background:#ffaa00;"></span> Caution (Complied)</div>
+            <div><span class="line-segment" style="background:#ff0000; border: 1px dashed white;"></span> Caution (Violation)</div>
+        </div>
+    </div>
+
+    <div id="cautionModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('cautionModal')">&times;</span>
+            <h2 style="color:#ffaa00; margin-top:0;"> Caution Order (SR) Details</h2>
+            <div style="overflow-x:auto;">
+                <table class="dashboard-table" id="cautionTable">
+                    <thead>
+                        <tr>
+                            <th>Zone (Mast to Mast)</th>
+                            <th>Time</th>
+                            <th>Limit (Kmph)</th>
+                            <th>Actual Max (Kmph)</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="crewModal" class="modal">
+        <div class="modal-content" style="height: auto; max-height: 90%; overflow-y: auto;">
+            <span class="close" onclick="closeModal('crewModal')">&times;</span>
+            <h2 style="color:#00ff88; margin-top:0; border-bottom:1px solid #555; padding-bottom:10px;"> Report Configuration & Crew Details</h2>
+            
+            <div style="background:#444; padding:10px; margin-bottom:15px; border-radius:5px;">
+                <h4 style="margin:0 0 10px 0; color:#fff;"> Train Details</h4>
+                <div style="display:flex; gap:20px;">
+                    <div class="form-group" style="flex:1;"><label>Train No:</label><input type="text" id="inTrainNo" placeholder="e.g. 12345"></div>
+                    <div class="form-group" style="flex:1;"><label>Loco No:</label><input type="text" id="inLocoNo" placeholder="e.g. 30567"></div>
+                </div>
+            </div>
+
+            <div class="crew-grid">
+                <div class="crew-box">
+                    <h4> Loco Pilot (LP)</h4>
+                    <div class="form-group">
+                        <label>LP ID (Auto-Fetch):</label>
+                        <input type="text" id="inLpId" placeholder="Enter ID (e.g. BSP123)" oninput="this.value = this.value.toUpperCase(); searchCrew(this.value, 'LP')">
+                    </div>
+                    <div class="form-group"><label>Name:</label><input type="text" id="inLpName"></div>
+                    <div class="form-group"><label>Designation:</label><input type="text" id="inLpDesg"></div>
+                    <div class="form-group"><label>Group CLI:</label><input type="text" id="inLpCli"></div>
+                    <div class="form-group"><label>CUG Number:</label><input type="text" id="inLpCug"></div>
+                </div>
+
+                <div class="crew-box">
+                    <h4> Assistant LP (ALP)</h4>
+                    <div class="form-group">
+                        <label>ALP ID (Auto-Fetch):</label>
+                        <input type="text" id="inAlpId" placeholder="Enter ID" oninput="this.value = this.value.toUpperCase(); searchCrew(this.value, 'ALP')">
+                    </div>
+                    <div class="form-group"><label>Name:</label><input type="text" id="inAlpName"></div>
+                    <div class="form-group"><label>Designation:</label><input type="text" id="inAlpDesg"></div>
+                    <div class="form-group"><label>Group CLI:</label><input type="text" id="inAlpCli"></div>
+                    <div class="form-group"><label>CUG Number:</label><input type="text" id="inAlpCug"></div>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <button onclick="finalizeReport('pdf_visual')" style="background:#00ff88; color:#000; font-size:16px; padding:15px;"> Generate Detailed PDF Report</button>
+                <button onclick="finalizeReport('word')" style="background:#4db8ff; color:#000; font-size:16px; padding:15px;"> Generate Detailed Word Report</button>
+            </div>
+            <div id="sheetStatus" style="color:#aaa; text-align:center; margin-top:10px; font-size:12px;">Google Sheet Status: Waiting...</div>
+        </div>
+    </div>
+
+    <div id="chartModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('chartModal')">&times;</span>
+            <h2 style="color:#fff; margin-top:0;"> All Stoppage Braking Patterns</h2>
+            <div class="modal-graph-container">
+                <canvas id="allStopsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="fullGraphModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('fullGraphModal')">&times;</span>
+            <h2 style="color:#9933ff; margin-top:0;"> Full Journey Analysis (Speed vs Distance)</h2>
+            <div class="graph-tools">
+                <span style="color:#bbb; margin-right:10px; font-size:12px;"> Mouse Wheel to Zoom | Left Click & Drag to Pan</span>
+                <button onclick="resetFullGraphZoom()" style="background:#444; color:#fff;"> Reset Zoom</button>
+            </div>
+            <div class="modal-graph-container">
+                <canvas id="fullJourneyChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="tableModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('tableModal')">&times;</span>
+            <h2 style="color:#4db8ff; margin-top:0;"> Stoppage Analysis Details</h2>
+            <div style="overflow-x:auto;">
+                <table class="dashboard-table" id="dashboardTable">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">Stop # / Signal</th>
+                            <th rowspan="2">Time</th>
+                            <th colspan="2">Speed at Prev Signals (Kmph)</th>
+                            <th colspan="4">Speed at Distance (Kmph)</th>
+                        </tr>
+                        <tr>
+                            <th style="font-size:11px;">2nd Prev<br>(Double Yellow)</th>
+                            <th style="font-size:11px;">1st Prev<br>(One Yellow)</th>
+                            
+                            <th>1000m</th>
+                            <th>800m</th>
+                            <th>500m</th>
+                            <th>100m</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="printableReport">
+        <div class="report-content-wrapper">
+            <div class="report-header">
+                <h1>INDIAN RAILWAYS - EASTERN RAILWAY</h1>
+                <h3>SPM ANALYSIS MALDA DIVISION REPORT</h3>
+                <div style="font-size: 11px; margin-top:5px;">System Generated | Date: <span id="reportDate"></span></div>
+            </div>
+
+            <div class="report-box" style="margin-bottom:15px;">
+                <h4 style="background:#ddd; color:#000;"> Train & Crew Details</h4>
+                <table class="crew-report-table" style="width:100%;">
+                    <tr>
+                        <th style="width:15%;">Train No:</th> <td id="repTrainNo" style="width:35%;"></td>
+                        <th style="width:15%;">Loco No:</th> <td id="repLocoNo" style="width:35%;"></td>
+                    </tr>
+                </table>
+                <table class="crew-report-table" style="width:100%; margin-top:5px;">
+                    <tr style="background:#f9f9f9;">
+                        <th>Role</th> <th>ID</th> <th>Name</th> <th>Desg</th> <th>CLI Name</th> <th>CUG</th>
+                    </tr>
+                    <tr>
+                        <th>LP</th> 
+                        <td id="repLpId"></td> <td id="repLpName"></td> <td id="repLpDesg"></td> <td id="repLpCli"></td> <td id="repLpCug"></td>
+                    </tr>
+                    <tr>
+                        <th>ALP</th> 
+                        <td id="repAlpId"></td> <td id="repAlpName"></td> <td id="repAlpDesg"></td> <td id="repAlpCli"></td> <td id="repAlpCug"></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="report-grid">
+                <div class="report-box">
+                    <h4>Trip Summary</h4>
+                    <table style="width:100%; text-align:left;">
+                        <tr style="background: #e6f7ff;">
+                            <td><b>Date of Journey:</b></td>
+                            <td id="repDateOfJourney" style="font-weight:bold; color:#005580;">-</td>
+                        </tr>
+                        <tr><td><b>From Stn:</b></td><td id="repFrom"></td></tr>
+                        <tr><td><b>To Stn:</b></td><td id="repTo"></td></tr>
+                        <tr><td><b>Total Dist:</b></td><td id="repDist"></td></tr>
+                        <tr><td><b>Start Time:</b></td><td id="repStart"></td></tr>
+                        <tr><td><b>End Time:</b></td><td id="repEnd"></td></tr>
+                    </table>
+                </div>
+                <div class="report-box">
+                    <h4>Test Compliance (BFT/BPT)</h4>
+                    <div style="margin-bottom:8px; font-size:14px;">
+                        <b>Brake Feel Test:</b> <span id="repBFT"></span>
+                    </div>
+                    <div style="font-size:14px;">
+                        <b>Brake Power Test:</b> <span id="repBPT"></span>
+                    </div>
+                </div>
+            </div>
+
+            <h4 style="border-bottom:1px solid #000; padding-bottom:5px;"> Stoppage Analysis Details</h4>
+            <table class="report-table" id="stoppageTable">
+                <colgroup>
+                    <col class="col-small"> <col class="col-time"> 
+                    <col class="col-med"> <col class="col-med"> 
+                    <col class="col-speed"> <col class="col-speed"> <col class="col-speed"> <col class="col-speed">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th rowspan="2"># / Signal</th>
+                        <th rowspan="2">Time</th>
+                        <th colspan="2">Speed at Prev Signals</th>
+                        <th colspan="4">Speed at Distance</th>
+                    </tr>
+                    <tr>
+                        <th>2nd Prev<br><span style="font-size:9px">(Double Yellow)</span></th>
+                        <th>1st Prev<br><span style="font-size:9px">(One Yellow)</span></th>
+
+                        <th>1000m</th>
+                        <th>800m</th>
+                        <th>500m</th>
+                        <th>100m</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <h4 style="border-bottom:1px solid #000; padding-bottom:5px; margin-top:20px; color:#cc0000;"> Overspeed Incidents Report</h4>
+            <div id="overspeedReportContainer">
+            </div>
+
+            <h4 style="border-bottom:1px solid #000; padding-bottom:5px; margin-top:20px; color:#ffaa00;"> Caution Order (SR) Compliance</h4>
+            <div id="cautionReportContainer">
+                <div style="color:#777; font-style:italic;">No Caution Data Loaded or No Zones Found.</div>
+            </div>
+
+            <div style="margin-top:40px; display:flex; justify-content:space-between; font-size:11px;">
+                <div><b>Signature of LI/CLI</b></div>
+                <div><b>Signature of Loco Pilot</b></div>
+            </div>
+
+            <div class="page-break"></div>
+            <div class="graph-page-container">
+                <div class="report-chart-box">
+                    <h3 style="text-align:center; font-size:14px; margin:0 0 10px 0;"> Compare All Stops (Braking Performance)</h3>
+                    <canvas id="reportChartCanvas"></canvas>
+                </div>
+            </div>
+
+            <div class="page-break"></div>
+            <div style="height:560px; border:1px solid #ccc; padding:10px;">
+                <h3 style="text-align:center; font-size:14px; margin:0 0 10px 0;"> Speed vs Dist (Full Journey)</h3>
+                <canvas id="reportFullJourneyChart" style="width:100%; height:500px;"></canvas>
+            </div>
+
+            <div id="mapSnapshotsContainer"></div>
+
+        </div>
+        
+        <button onclick="document.getElementById('printableReport').style.display='none'" style="position:fixed; top:20px; right:20px; width:auto; z-index:100001; background:red; color:white; padding: 10px;"> Close Preview</button>
+    </div>
+
+    <script>
+        // --- GOOGLE SHEETS CONFIG ---
+        const GOOGLE_API_KEY = 'AIzaSyAw23pJz0K9fZb2rRRAe2C2cJDilRc0Kac'; 
+        const SPREADSHEET_ID = '1wnMABJHt3UFLLnsSvocEAgo6Mxv5sgR3cSSknfrIEcg';
+        const SHEET_NAME = 'Sheet1';
+        
+        var crewDataGlobal = [];
+
+        // --- GLOBAL VARS ---
+        var map, googleHybrid, offlineBaseLayer, maldaPdfLayer, maldaPdfOverlay;
+        var loadedSignals = [];
+        var globalTrainData = [];
+        var currentPath = [];
+        var detectedStationKey = null;
+        var bigChartInstance = null;
+        var fullJourneyChartInstance = null;
+        var reportChartInstance = null;
+        var reportFullJourneyChartInstance = null;
+        var reportOutputMode = 'pdf_visual';
+        var matchedSignalsGlobal = []; 
+        var globalBftText = "NOT DONE";
+        var globalBptText = "NOT DONE";
+        var globalSntData = [];
+        var reportSnapshots = [];
+        var overspeedLayerGroup = L.layerGroup(); 
+        var fsdRouteLayerGroup = L.layerGroup();
+        var fsdRouteFeatures = [];
+        var globalOverspeedList = [];
+        var globalMPSUsed = 0;
+        const SIGNAL_MATCH_RADIUS_M = 150;
+        
+        // --- DEFINING THE SIGNAL ICON (SVG DATA URI) ---
+        const signalSvgData = "data:image/svg+xml;base64," + btoa(`
+        <svg width="30" height="50" viewBox="0 0 30 50" xmlns="http://www.w3.org/2000/svg">
+          <rect x="13" y="20" width="4" height="30" fill="#666" stroke="#333" stroke-width="1"/>
+          <rect x="5" y="0" width="20" height="25" rx="3" fill="#333" stroke="#fff" stroke-width="1"/>
+          <circle cx="15" cy="6" r="3" fill="#ff3333"/>
+          <circle cx="15" cy="12.5" r="3" fill="#ffaa00"/>
+          <circle cx="15" cy="19" r="3" fill="#33cc33"/>
+        </svg>`);
+
+        // Image Object for Chart.js
+        const signalChartImg = new Image(24, 40);
+        signalChartImg.src = signalSvgData;
+
+        // --- NEW GLOBAL VARS FOR CAUTION ORDER ---
+        var globalMastData = {}; 
+        var globalCautionData = []; 
+        var globalCautionAnalysis = []; 
+
+        // --- GOOGLE SHEET FUNCTIONS ---
+        function fetchCrewSheetData() {
+            if(!GOOGLE_API_KEY || GOOGLE_API_KEY === 'YOUR_GOOGLE_API_KEY_HERE') {
+                document.getElementById('sheetStatus').innerText = " API Key missing in code!";
+                return;
+            }
+            document.getElementById('sheetStatus').innerText = "Fetching Google Sheet Data...";
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}!A:E?key=${GOOGLE_API_KEY}`;
+            
+            fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if(data.values) {
+                    crewDataGlobal = data.values;
+                    document.getElementById('sheetStatus').innerText = ` Data Loaded (${crewDataGlobal.length} rows)`;
+                    document.getElementById('sheetStatus').style.color = '#00ff88';
+                } else {
+                    document.getElementById('sheetStatus').innerText = " No data found in sheet.";
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching sheet:', error);
+                document.getElementById('sheetStatus').innerText = " Error fetching data (Check Console)";
+            });
+        }
+
+        function searchCrew(id, role) {
+            if(!id || crewDataGlobal.length === 0) return;
+            let found = crewDataGlobal.find(row => row[0] && row[0].toString().toUpperCase() === id.toUpperCase());
+            if(found) {
+                if(role === 'LP') {
+                    document.getElementById('inLpName').value = found[1] || '';
+                    document.getElementById('inLpDesg').value = found[2] || '';
+                    document.getElementById('inLpCli').value = found[3] || '';
+                    document.getElementById('inLpCug').value = found[4] || '';
+                } else {
+                    document.getElementById('inAlpName').value = found[1] || '';
+                    document.getElementById('inAlpDesg').value = found[2] || '';
+                    document.getElementById('inAlpCli').value = found[3] || '';
+                    document.getElementById('inAlpCug').value = found[4] || '';
+                }
+            }
+        }
+
+        function openCrewModal() {
+            if(!currentPath || currentPath.length === 0) { alert("Please run analysis first!"); return; }
+            document.getElementById('crewModal').style.display = 'block';
+            if(crewDataGlobal.length === 0) { fetchCrewSheetData(); }
+        }
+
+        function finalizeReport(mode = 'pdf_visual') {
+            reportOutputMode = mode;
+            document.getElementById('repTrainNo').innerText = document.getElementById('inTrainNo').value || '-';
+            document.getElementById('repLocoNo').innerText = document.getElementById('inLocoNo').value || '-';
+            // LP
+            document.getElementById('repLpId').innerText = document.getElementById('inLpId').value || '-';
+            document.getElementById('repLpName').innerText = document.getElementById('inLpName').value || '-';
+            document.getElementById('repLpDesg').innerText = document.getElementById('inLpDesg').value || '-';
+            document.getElementById('repLpCli').innerText = document.getElementById('inLpCli').value || '-';
+            document.getElementById('repLpCug').innerText = document.getElementById('inLpCug').value || '-';
+            // ALP
+            document.getElementById('repAlpId').innerText = document.getElementById('inAlpId').value || '-';
+            document.getElementById('repAlpName').innerText = document.getElementById('inAlpName').value || '-';
+            document.getElementById('repAlpDesg').innerText = document.getElementById('inAlpDesg').value || '-';
+            document.getElementById('repAlpCli').innerText = document.getElementById('inAlpCli').value || '-';
+            document.getElementById('repAlpCug').innerText = document.getElementById('inAlpCug').value || '-';
+
+            closeModal('crewModal');
+            generateFinalReportLogic();
+        }
+
+        // --- MAP SETUP (GOOGLE + MLDT PDF BASE) ---
+        googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+        });
+        offlineBaseLayer = L.gridLayer({ attribution: 'Offline Grid Base', tileSize: 256 });
+        offlineBaseLayer.createTile = function(coords) {
+            const tile = document.createElement('canvas');
+            tile.width = 256; tile.height = 256;
+            const ctx = tile.getContext('2d');
+            ctx.fillStyle = '#1f2730'; ctx.fillRect(0, 0, 256, 256);
+            ctx.strokeStyle = '#3a4858'; ctx.strokeRect(0, 0, 256, 256);
+            ctx.fillStyle = '#9db2c8'; ctx.font = '12px sans-serif';
+            ctx.fillText(`Z:${coords.z}`, 8, 16);
+            ctx.fillText(`X:${coords.x} Y:${coords.y}`, 8, 34);
+            return tile;
+        };
+        maldaPdfLayer = L.layerGroup();
+        map = L.map('map', { center: [25.0, 88.15], zoom: 9, layers: [googleHybrid], preferCanvas: true });
+        L.control.layers(
+            { "Google Hybrid": googleHybrid, "Malda Division Map (PDF)": maldaPdfLayer, "Offline Grid Base": offlineBaseLayer },
+            { "FSD Route Reference": fsdRouteLayerGroup, "Overspeed Incidents": overspeedLayerGroup }
+        ).addTo(map);
+        loadMaldaPdfBaseLayer();
+
+        var stopIcon = createIcon('blue');
+        var startIcon = createIcon('green');
+        var endIcon = createIcon('red');
+        
+        // CUSTOM SIGNAL ICON FOR LEAFLET MAP
+        var signalIcon = L.icon({
+            iconUrl: signalSvgData,
+            iconSize: [24, 40],
+            iconAnchor: [12, 40], // Bottom center
+            popupAnchor: [0, -35]
+        });
+
+        var bftIcon = createIcon('yellow');
+        var bptIcon = createIcon('violet');
+        var warnIcon = new L.Icon({
+            iconUrl: './vendor/markers/marker-icon-2x-gold.png',
+            shadowUrl: './vendor/markers/marker-shadow.png',
+            iconSize: [20, 32], iconAnchor: [10, 32], popupAnchor: [1, -25], shadowSize: [32, 32]
+        });
+
+        function createIcon(color) {
+            return new L.Icon({
+                iconUrl: `./vendor/markers/marker-icon-2x-${color}.png`,
+                shadowUrl: './vendor/markers/marker-shadow.png',
+                iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+            });
+        }
+
+        async function loadMaldaPdfBaseLayer() {
+            const maldaBounds = L.latLngBounds([24.15, 87.35], [25.85, 88.75]);
+            try {
+                if (!window.pdfjsLib) throw new Error('pdfjs not loaded');
+                pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdf.worker.min.js';
+                const pdf = await pdfjsLib.getDocument('./MLDT_MAP.pdf').promise;
+                const page = await pdf.getPage(1);
+                const viewport = page.getViewport({ scale: 2.4 });
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                const imageUrl = canvas.toDataURL('image/png');
+                maldaPdfOverlay = L.imageOverlay(imageUrl, maldaBounds, { opacity: 0.95, interactive: false });
+                maldaPdfLayer.clearLayers();
+                maldaPdfLayer.addLayer(maldaPdfOverlay);
+                map.fitBounds(maldaBounds, { padding: [10, 10] });
+            } catch (err) {
+                console.error('MLDT MAP.pdf could not load, using offline grid fallback', err);
+                if (!map.hasLayer(googleHybrid)) offlineBaseLayer.addTo(map);
+            }
+        }
+
+        // --- TIME FORMATTING FIX (UTC Extraction to avoid Local Timezone Shift) ---
+        function formatExcelTime(val) {
+            if (typeof val === 'number') {
+                // Convert Excel Serial Date to JS Date (UTC)
+                let date = new Date(Math.round((val - 25569) * 86400 * 1000));
+                
+                // Extract UTC components to keep exact Excel time
+                let h = date.getUTCHours();
+                let m = date.getUTCMinutes();
+                let s = date.getUTCSeconds();
+                
+                // Pad with zeros
+                return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            }
+            return val;
+        }
+
+        function parseRtisTimestampToSeconds(rawVal) {
+            if (rawVal === undefined || rawVal === null || `${rawVal}`.trim() === '') return null;
+            if (typeof rawVal === 'number' && isFinite(rawVal)) {
+                return Math.round((rawVal - 25569) * 86400);
+            }
+            const str = `${rawVal}`.trim();
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) return Math.floor(d.getTime() / 1000);
+            const m = str.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+            if (m) {
+                const hh = parseInt(m[1], 10) || 0;
+                const mm = parseInt(m[2], 10) || 0;
+                const ss = parseInt(m[3] || '0', 10) || 0;
+                return hh * 3600 + mm * 60 + ss;
+            }
+            return null;
+        }
+
+        function getTimeDiffSeconds(path, idx1, idx2) {
+            const t1 = path[idx1]?.tsSec;
+            const t2 = path[idx2]?.tsSec;
+            if (t1 != null && t2 != null) {
+                let d = t2 - t1;
+                if (d < 0) d += 24 * 3600;
+                return d;
+            }
+            return Math.max(0, idx2 - idx1);
+        }
+
+        function getSignalNameForStop(stopIndex) {
+            if(!matchedSignalsGlobal || matchedSignalsGlobal.length === 0) return "No Signal Data";
+            let stopLatLng = currentPath[stopIndex];
+            let foundSignalName = "No Signal";
+            let nearbySignals = matchedSignalsGlobal.filter(s => {
+                let sLoc = L.latLng(s.signal.lat, s.signal.lng);
+                return stopLatLng.distanceTo(sLoc) <= 500;
+            });
+            if (nearbySignals.length > 0) {
+                let signalAhead = nearbySignals.find(s => s.pathIndex >= stopIndex);
+                if (signalAhead) { foundSignalName = signalAhead.signal.name; } 
+                else {
+                    let signalBehind = nearbySignals[nearbySignals.length - 1];
+                    if (signalBehind) { foundSignalName = signalBehind.signal.name; }
+                }
+            }
+            return foundSignalName;
+        }
+
+        // --- SMART BULK UPLOAD LOGIC ---
+        document.getElementById('bulkUpload').addEventListener('change', function(e) {
+            let files = e.target.files;
+            if (files.length === 0) return;
+
+            document.getElementById('bulkStatus').innerText = `Processing ${files.length} files...`;
+            let processedCount = 0;
+
+            Array.from(files).forEach(file => {
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        let data = new Uint8Array(e.target.result);
+                        let wb = XLSX.read(data, {type: 'array'});
+                        // Ensure raw parsing for numbers to fix time
+                        let jsonData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: true });
+                        
+                        if (jsonData.length > 0) {
+                            identifyAndAssignData(jsonData, file.name);
+                        }
+                    } catch (err) {
+                        console.error("Error reading file:", file.name, err);
+                    }
+                    processedCount++;
+                    if(processedCount === files.length) {
+                         document.getElementById('bulkStatus').innerText = " All Files Processed!";
+                         document.getElementById('bulkStatus').style.color = "#00ff88";
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        });
+
+        function identifyAndAssignData(data, fileName) {
+            let keys = Object.keys(data[0]).map(k => k.trim().toLowerCase());
+            let foundType = "";
+
+            // 1. Detect TRAIN LOG (Must have Speed & Lat/Long)
+            if (keys.includes('speed') && (keys.includes('latitude') || keys.includes('lat'))) {
+                foundType = "Train Log";
+                globalTrainData = data;
+                
+                // --- NEW CODE: Round Off Speed in Bulk Upload ---
+                globalTrainData.forEach(row => {
+                    if (row['Speed'] !== undefined && row['Speed'] !== null) {
+                        row['Speed'] = Math.round(parseFloat(row['Speed']));
+                    }
+                });
+                // -----------------------------------------------
+
+                populateStationDropdowns(globalTrainData);
+                document.getElementById('status').innerText = " Train Log Detected via Bulk Upload";
+            }
+            
+            // 2. Detect SIGNALS (Must have 'Signal Name')
+            else if (keys.some(k => k.includes('signal name') || k === 'name')) {
+                foundType = "Signals";
+                loadedSignals = mergeSignals(loadedSignals, normalizeSignalsFromRows(data, fileName));
+                document.getElementById('signalStatus').innerText = ` Auto-Loaded ${loadedSignals.length} signals.`;
+                document.getElementById('signalStatus').style.color = '#00ff88';
+            }
+
+            // 3. Detect MAST DATA (Must have 'OHE Mast' or 'Mast')
+            else if (keys.some(k => k.includes('ohe mast') || k === 'mast')) {
+                if(!keys.some(k => k.includes('speed limit') || k.includes('caution'))) {
+                    foundType = "Mast Data";
+                    globalMastData = {};
+                    data.forEach(row => {
+                        let mastName = row['OHE Mast'] || row['Mast'];
+                        let lat = row['Latitude'] || row['Lat'];
+                        let lng = row['Longitude'] || row['Long'] || row['Lng'];
+                        if(mastName && lat && lng) {
+                            globalMastData[mastName.toString().trim()] = { lat: parseFloat(lat), lng: parseFloat(lng) };
+                        }
+                    });
+                    document.getElementById('mastStatus').innerText = ` Auto-Loaded ${Object.keys(globalMastData).length} Masts.`;
+                    document.getElementById('mastStatus').style.color = '#00ff88';
+                }
+            }
+
+            // 4. Detect CAUTION ORDER (Has 'From OHE Mast' and 'Speed Limit')
+            if (keys.some(k => k.includes('from ohe') || k.includes('to ohe') || k.includes('speed limit'))) {
+                foundType = "Caution Order";
+                globalCautionData = data;
+                document.getElementById('cdStatus').innerText = ` Auto-Loaded ${globalCautionData.length} Cautions.`;
+                document.getElementById('cdStatus').style.color = '#00ff88';
+            }
+            console.log(`File: ${fileName} -> Detected as: ${foundType || "Unknown"}`);
+        }
+
+        function getRowValueByAliases(row, aliases) {
+            const keyMap = {};
+            Object.keys(row || {}).forEach(k => {
+                keyMap[k.toString().trim().toLowerCase()] = row[k];
+            });
+            for (const alias of aliases) {
+                const v = keyMap[alias];
+                if (v !== undefined && v !== null && `${v}`.trim() !== '') return v;
+            }
+            return null;
+        }
+
+        function normalizeSignalsFromRows(rows, sourceName = 'SignalFile') {
+            if (!rows || rows.length === 0) return [];
+            const signals = [];
+            rows.forEach((row, idx) => {
+                let lat = getRowValueByAliases(row, ['latitude', 'lat', 'y', 'signal latitude']);
+                let lng = getRowValueByAliases(row, ['longitude', 'lng', 'long', 'x', 'signal longitude']);
+
+                if ((lat == null || lng == null) && row && typeof row === 'object') {
+                    const coord = getRowValueByAliases(row, ['coordinates', 'coord', 'latlong', 'lat,lng', 'location']);
+                    if (coord && typeof coord === 'string' && coord.includes(',')) {
+                        const parts = coord.split(',').map(v => parseFloat(v.trim()));
+                        if (parts.length >= 2 && isFinite(parts[0]) && isFinite(parts[1])) {
+                            lat = parts[0]; lng = parts[1];
+                        }
+                    }
+                }
+
+                lat = parseFloat(lat);
+                lng = parseFloat(lng);
+                if (!isFinite(lat) || !isFinite(lng)) return;
+
+                // Keep original source-code naming priority:
+                // Signal Name -> Name -> first non-empty column value.
+                let nameRaw = getRowValueByAliases(row, [
+                    'signal name', 'name', 'signal', 'signal id', 'signal_no', 'sig_name',
+                    'mast', 'mast no', 'ohe mast', 'location name', 'station'
+                ]);
+                if (!nameRaw && row && typeof row === 'object') {
+                    const firstCell = Object.values(row).find(v => v !== null && v !== undefined && `${v}`.trim() !== '');
+                    if (firstCell) nameRaw = firstCell;
+                }
+                const name = (nameRaw && `${nameRaw}`.trim()) ? `${nameRaw}`.trim() : `Signal-${idx + 1}`;
+                signals.push({ name, lat, lng });
+            });
+            return signals;
+        }
+
+        function mergeSignals(base, incoming) {
+            const out = Array.isArray(base) ? [...base] : [];
+            const seen = new Set(out.map(s => `${(s.name || '').toString().trim().toLowerCase()}|${Number(s.lat).toFixed(6)}|${Number(s.lng).toFixed(6)}`));
+            (incoming || []).forEach(s => {
+                const key = `${(s.name || '').toString().trim().toLowerCase()}|${Number(s.lat).toFixed(6)}|${Number(s.lng).toFixed(6)}`;
+                if (!seen.has(key)) {
+                    out.push({ name: s.name, lat: parseFloat(s.lat), lng: parseFloat(s.lng) });
+                    seen.add(key);
+                }
+            });
+            return out;
+        }
+
+        function readWorkbookRows(arrayBuffer) {
+            const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+            let rows = [];
+            wb.SheetNames.forEach(sheetName => {
+                const sheetRows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { raw: true, defval: null });
+                if (sheetRows && sheetRows.length) rows = rows.concat(sheetRows);
+            });
+            return rows;
+        }
+
+        function readSignalWorkbookRows(input, inputType = 'array') {
+            const source = inputType === 'array' ? new Uint8Array(input) : input;
+            const wb = XLSX.read(source, { type: inputType, raw: true, codepage: 65001 });
+            const firstSheet = wb.SheetNames[0];
+            if (!firstSheet) return [];
+            return XLSX.utils.sheet_to_json(wb.Sheets[firstSheet], { raw: true, defval: null });
+        }
+
+        function normalizeSignalsLocation4(rows) {
+            return (rows || []).map((row, idx) => {
+                const latRaw = row['Latitude'] ?? row['Lat'];
+                const lngRaw = row['Longitude'] ?? row['Lng'] ?? row['Long'];
+                const lat = parseFloat(latRaw);
+                const lng = parseFloat(lngRaw);
+                const name = row['Signal Name'] || row['Name'] || Object.values(row || {})[0] || `Signal-${idx + 1}`;
+                return { name: `${name}`.trim(), lat, lng };
+            }).filter(signal => isFinite(signal.lat) && isFinite(signal.lng));
+        }
+
+        function normalizeSntFromRows(rows, sourceName = 'SNT File') {
+            if (!rows || rows.length === 0) return [];
+            const out = [];
+            rows.forEach((row, idx) => {
+                const stationRaw = getRowValueByAliases(row, [
+                    'station', 'station code', 'stationcode', 'stn', 'stn code',
+                    'snt station', 'location', 'from station', 'to station'
+                ]);
+                if (!stationRaw) return;
+                const station = `${stationRaw}`.trim();
+                if (!station) return;
+
+                const sntRaw = getRowValueByAliases(row, [
+                    'snt', 'snt no', 'snt number', 'schedule no', 'schedule',
+                    'train no', 'train number', 'train', 'trip'
+                ]);
+                const snt = (sntRaw == null ? '' : `${sntRaw}`.trim());
+
+                out.push({
+                    station,
+                    snt,
+                    source: sourceName,
+                    rowNo: idx + 1
+                });
+            });
+            return out;
+        }
+
+        function mergeSntData(base, incoming) {
+            const out = Array.isArray(base) ? [...base] : [];
+            const seen = new Set(out.map(r => `${(r.station || '').toString().trim().toUpperCase()}|${(r.snt || '').toString().trim().toUpperCase()}`));
+            (incoming || []).forEach(r => {
+                const station = (r.station || '').toString().trim();
+                if (!station) return;
+                const snt = (r.snt || '').toString().trim();
+                const key = `${station.toUpperCase()}|${snt.toUpperCase()}`;
+                if (!seen.has(key)) {
+                    out.push({ station, snt, source: r.source || '', rowNo: r.rowNo || null });
+                    seen.add(key);
+                }
+            });
+            return out;
+        }
+
+        // --- FILE HANDLING (INDIVIDUAL FALLBACKS) ---
+        document.getElementById('signalUpload').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('signalStatus').innerText = 'Processing signal reference...';
+            document.getElementById('signalStatus').style.color = '#4db8ff';
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                try {
+                    var lowerName = (file.name || '').toLowerCase();
+                    var data = lowerName.endsWith('.csv')
+                        ? readSignalWorkbookRows(new TextDecoder('utf-8').decode(ev.target.result), 'string')
+                        : readSignalWorkbookRows(ev.target.result, 'array');
+                    loadedSignals = normalizeSignalsLocation4(data);
+                    if (loadedSignals.length > 0) {
+                        document.getElementById('signalStatus').innerText = `Loaded ${loadedSignals.length} signals.`;
+                        document.getElementById('signalStatus').style.color = '#00ff88';
+                    } else {
+                        document.getElementById('signalStatus').innerText = 'No valid signal rows found in selected file.';
+                        document.getElementById('signalStatus').style.color = '#ff6666';
+                    }
+                } catch (err) {
+                    console.error('Signal upload parse failed', err);
+                    document.getElementById('signalStatus').innerText = 'Signal upload failed. Check XLS/XLSX/CSV format.';
+                    document.getElementById('signalStatus').style.color = '#ff6666';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('sntUpload').addEventListener('change', async function(e) {
+            const files = Array.from(e.target.files || []);
+            if (files.length === 0) return;
+            document.getElementById('sntStatus').innerText = `Processing ${files.length} SNT file(s)...`;
+            document.getElementById('sntStatus').style.color = '#4db8ff';
+
+            let mergedSnt = [];
+            try {
+                for (const file of files) {
+                    const lower = file.name.toLowerCase();
+                    if (lower.endsWith('.zip')) {
+                        if (!window.JSZip) throw new Error('JSZip not loaded');
+                        const zip = await JSZip.loadAsync(file);
+                        const entries = Object.keys(zip.files).filter(k => !zip.files[k].dir);
+                        for (const entryName of entries) {
+                            const en = entryName.toLowerCase();
+                            if (en.endsWith('.csv') || en.endsWith('.xls') || en.endsWith('.xlsx') || en.endsWith('.xlsm') || en.endsWith('.xlsb') || en.endsWith('.xltx') || en.endsWith('.xltm') || en.endsWith('.ods')) {
+                                const ab = await zip.files[entryName].async('arraybuffer');
+                                const rows = readWorkbookRows(ab);
+                                mergedSnt = mergeSntData(mergedSnt, normalizeSntFromRows(rows, entryName));
+                            }
+                        }
+                    } else if (lower.endsWith('.csv') || lower.endsWith('.xls') || lower.endsWith('.xlsx') || lower.endsWith('.xlsm') || lower.endsWith('.xlsb') || lower.endsWith('.xltx') || lower.endsWith('.xltm') || lower.endsWith('.ods')) {
+                        const ab = await file.arrayBuffer();
+                        const rows = readWorkbookRows(ab);
+                        mergedSnt = mergeSntData(mergedSnt, normalizeSntFromRows(rows, file.name));
+                    }
+                }
+
+                globalSntData = mergeSntData([], mergedSnt);
+                if (globalSntData.length > 0) {
+                    const uniqueStations = new Set(globalSntData.map(r => r.station.toUpperCase())).size;
+                    document.getElementById('sntStatus').innerText = `Loaded ${globalSntData.length} SNT row(s) from ${uniqueStations} station(s).`;
+                    document.getElementById('sntStatus').style.color = '#00ff88';
+                } else {
+                    document.getElementById('sntStatus').innerText = 'No valid SNT rows found in selected file(s).';
+                    document.getElementById('sntStatus').style.color = '#ff6666';
+                }
+            } catch (err) {
+                console.error('SNT upload parse failed', err);
+                document.getElementById('sntStatus').innerText = 'SNT upload failed. Check ZIP/CSV format.';
+                document.getElementById('sntStatus').style.color = '#ff6666';
+            }
+        });
+
+        document.getElementById('mastUpload').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                var data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                globalMastData = {};
+                data.forEach(row => {
+                    let mastName = row['OHE Mast'] || row['Mast'];
+                    let lat = row['Latitude'] || row['Lat'];
+                    let lng = row['Longitude'] || row['Long'] || row['Lng'];
+                    if(mastName && lat && lng) {
+                        globalMastData[mastName.toString().trim()] = { lat: parseFloat(lat), lng: parseFloat(lng) };
+                    }
+                });
+                document.getElementById('mastStatus').innerText = ` Loaded Locations for ${Object.keys(globalMastData).length} Masts.`;
+                document.getElementById('mastStatus').style.color = '#00ff88';
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('cdUpload').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                globalCautionData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                document.getElementById('cdStatus').innerText = ` Loaded ${globalCautionData.length} Caution Orders.`;
+                document.getElementById('cdStatus').style.color = '#00ff88';
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('logUpload').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('status').innerText = "Analyzing columns...";
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                // RAW TRUE IMPORTANT FOR TIME FIX
+                globalTrainData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: true });
+                
+                // --- NEW CODE: Round Off Speed Column ---
+                if(globalTrainData.length > 0) {
+                    globalTrainData.forEach(row => {
+                        if (row['Speed'] !== undefined && row['Speed'] !== null) {
+                            row['Speed'] = Math.round(parseFloat(row['Speed']));
+                        }
+                    });
+                    populateStationDropdowns(globalTrainData);
+                }
+                // ----------------------------------------
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('fsdInput').addEventListener('change', async function(e) {
+            const files = Array.from(e.target.files || []);
+            if (files.length === 0) return;
+            document.getElementById('fsdStatus').innerText = `Processing ${files.length} file(s)...`;
+            document.getElementById('fsdStatus').style.color = '#4db8ff';
+            try {
+                const allRoutes = [];
+                for (const file of files) {
+                    const routes = await parseFsdInputFile(file);
+                    routes.forEach(r => allRoutes.push(r));
+                }
+                if (allRoutes.length > 0) {
+                    fsdRouteFeatures = allRoutes;
+                    renderFsdRoutes();
+                    document.getElementById('fsdStatus').innerText = `Loaded ${fsdRouteFeatures.length} FSD reference route(s).`;
+                    document.getElementById('fsdStatus').style.color = '#00ff88';
+                } else {
+                    document.getElementById('fsdStatus').innerText = "No valid route points found.";
+                    document.getElementById('fsdStatus').style.color = '#ff6666';
+                }
+            } catch (err) {
+                console.error('FSD input parse failed', err);
+                document.getElementById('fsdStatus').innerText = "Failed to parse one or more files.";
+                document.getElementById('fsdStatus').style.color = '#ff6666';
+            }
+        });
+
+        function clearFsdReference() {
+            fsdRouteFeatures = [];
+            fsdRouteLayerGroup.clearLayers();
+            document.getElementById('fsdStatus').innerText = "FSD references cleared.";
+            document.getElementById('fsdStatus').style.color = '#bbb';
+        }
+
+        async function parseFsdInputFile(file) {
+            const name = file.name.toLowerCase();
+            if (name.endsWith('.zip')) {
+                if (!window.JSZip) throw new Error('JSZip library not loaded');
+                const routes = [];
+                const zip = await JSZip.loadAsync(file);
+                const entries = Object.keys(zip.files).filter(k => !zip.files[k].dir);
+                for (const entryName of entries) {
+                    const lower = entryName.toLowerCase();
+                    if (lower.endsWith('.kml') || lower.endsWith('.geojson') || lower.endsWith('.json') || lower.endsWith('.csv')) {
+                        const text = await zip.files[entryName].async('text');
+                        parseFsdTextByType(text, entryName).forEach(r => routes.push(r));
+                    } else if (lower.endsWith('.xls') || lower.endsWith('.xlsx') || lower.endsWith('.xlsm') || lower.endsWith('.xlsb') || lower.endsWith('.xltx') || lower.endsWith('.xltm') || lower.endsWith('.ods')) {
+                        const bin = await zip.files[entryName].async('arraybuffer');
+                        parseFsdSpreadsheet(bin, entryName).forEach(r => routes.push(r));
+                    }
+                }
+                return routes;
+            }
+            if (name.endsWith('.csv') || name.endsWith('.kml') || name.endsWith('.geojson') || name.endsWith('.json')) {
+                const text = await file.text();
+                return parseFsdTextByType(text, file.name);
+            }
+            if (name.endsWith('.xls') || name.endsWith('.xlsx') || name.endsWith('.xlsm') || name.endsWith('.xlsb') || name.endsWith('.xltx') || name.endsWith('.xltm') || name.endsWith('.ods')) {
+                const bin = await file.arrayBuffer();
+                return parseFsdSpreadsheet(bin, file.name);
+            }
+            return [];
+        }
+
+        function renderFsdRoutes() {
+            fsdRouteLayerGroup.clearLayers();
+            if (!fsdRouteFeatures || fsdRouteFeatures.length === 0) return;
+            fsdRouteLayerGroup.addTo(map);
+            fsdRouteFeatures.forEach((route, i) => {
+                const color = getRouteColor(i);
+                L.polyline(route.coords, { color, weight: 3, opacity: 0.78, dashArray: '8 4' })
+                    .bindPopup(`<b>FSD Route</b><br>${route.name}<br>Points: ${route.coords.length}`)
+                    .addTo(fsdRouteLayerGroup);
+            });
+        }
+
+        function getRouteColor(i) {
+            const palette = ['#00e5ff', '#ff6b6b', '#ffd166', '#7ae582', '#a78bfa', '#4cc9f0', '#f72585'];
+            return palette[i % palette.length];
+        }
+
+        function parseFsdTextByType(text, fileName) {
+            const lower = fileName.toLowerCase();
+            if (lower.endsWith('.kml')) return parseKmlRoutes(text, fileName);
+            if (lower.endsWith('.geojson') || lower.endsWith('.json')) return parseGeoJsonRoutes(text, fileName);
+            if (lower.endsWith('.csv')) return parseCsvRoutes(text, fileName);
+            return [];
+        }
+
+        function parseKmlRoutes(kmlText, fileName) {
+            const routes = [];
+            try {
+                const xml = new DOMParser().parseFromString(kmlText, 'text/xml');
+                const placemarks = Array.from(xml.getElementsByTagName('Placemark'));
+                placemarks.forEach((pm, i) => {
+                    const name = pm.getElementsByTagName('name')[0]?.textContent?.trim() || `${fileName}-${i + 1}`;
+                    const coordNodes = Array.from(pm.getElementsByTagName('coordinates'));
+                    coordNodes.forEach((node, ci) => {
+                        const coords = parseKmlCoordinateString(node.textContent || '');
+                        if (coords.length >= 2) routes.push({ name: `${name}-${ci + 1}`, coords });
+                    });
+                });
+            } catch (e) { console.error('KML parse error', e); }
+            return routes;
+        }
+
+        function parseKmlCoordinateString(text) {
+            return text.trim().split(/\s+/).map(item => {
+                const parts = item.split(',').map(Number);
+                if (parts.length < 2) return null;
+                const lng = parts[0], lat = parts[1];
+                if (!isFinite(lat) || !isFinite(lng)) return null;
+                return L.latLng(lat, lng);
+            }).filter(Boolean);
+        }
+
+        function parseGeoJsonRoutes(jsonText, fileName) {
+            const routes = [];
+            try {
+                const geo = JSON.parse(jsonText);
+                const features = geo.type === 'FeatureCollection' ? (geo.features || []) : [geo];
+                features.forEach((f, i) => {
+                    const g = f.geometry || f;
+                    const name = f.properties?.name || `${fileName}-${i + 1}`;
+                    if (!g || !g.type || !g.coordinates) return;
+                    if (g.type === 'LineString') {
+                        const coords = g.coordinates.map(c => L.latLng(c[1], c[0])).filter(p => isFinite(p.lat) && isFinite(p.lng));
+                        if (coords.length >= 2) routes.push({ name, coords });
+                    } else if (g.type === 'MultiLineString') {
+                        g.coordinates.forEach((line, li) => {
+                            const coords = line.map(c => L.latLng(c[1], c[0])).filter(p => isFinite(p.lat) && isFinite(p.lng));
+                            if (coords.length >= 2) routes.push({ name: `${name}-${li + 1}`, coords });
+                        });
+                    }
+                });
+            } catch (e) { console.error('GeoJSON parse error', e); }
+            return routes;
+        }
+
+        function parseCsvRoutes(csvText, fileName) {
+            const rows = csvText.split(/\r?\n/).filter(r => r.trim());
+            if (rows.length < 2) return [];
+            const headers = rows[0].split(',').map(h => h.trim().toLowerCase());
+            const latIdx = headers.findIndex(h => ['lat', 'latitude', 'y'].includes(h));
+            const lngIdx = headers.findIndex(h => ['lng', 'long', 'longitude', 'x'].includes(h));
+            if (latIdx < 0 || lngIdx < 0) return [];
+            const coords = [];
+            for (let i = 1; i < rows.length; i++) {
+                const cols = rows[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+                const lat = parseFloat(cols[latIdx]);
+                const lng = parseFloat(cols[lngIdx]);
+                if (isFinite(lat) && isFinite(lng)) coords.push(L.latLng(lat, lng));
+            }
+            return coords.length >= 2 ? [{ name: fileName, coords }] : [];
+        }
+
+        function parseFsdSpreadsheet(arrayBuffer, fileName) {
+            const routes = [];
+            try {
+                const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+                wb.SheetNames.forEach(sheetName => {
+                    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: null });
+                    if (!rows.length) return;
+                    const keys = Object.keys(rows[0]);
+                    const latKey = keys.find(k => ['lat', 'latitude', 'y'].includes(k.toString().trim().toLowerCase()));
+                    const lngKey = keys.find(k => ['lng', 'long', 'longitude', 'x'].includes(k.toString().trim().toLowerCase()));
+                    if (!latKey || !lngKey) return;
+                    const coords = rows.map(r => L.latLng(parseFloat(r[latKey]), parseFloat(r[lngKey]))).filter(p => isFinite(p.lat) && isFinite(p.lng));
+                    if (coords.length >= 2) routes.push({ name: `${fileName}-${sheetName}`, coords });
+                });
+            } catch (e) { console.error('Spreadsheet route parse error', e); }
+            return routes;
+        }
+
+        function populateStationDropdowns(data) {
+            var sampleRow = data[0];
+            var keys = Object.keys(sampleRow);
+            detectedStationKey = keys.find(k => k.trim() === 'Last/Cur StationCode') || 
+                                 keys.find(k => k.toLowerCase().replace(/\s/g, '').includes('last/curstation')) ||
+                                 keys.find(k => k.toLowerCase().includes('stationcode'));
+
+            if (!detectedStationKey) { alert("Station Column not found!"); return; }
+
+            var stations = new Set();
+            data.forEach(row => {
+                let stn = row[detectedStationKey];
+                if(stn) stations.add(stn.toString().trim());
+            });
+
+            var sortedStations = Array.from(stations);
+            var fromSel = document.getElementById('fromStation');
+            var toSel = document.getElementById('toStation');
+            fromSel.innerHTML = ""; toSel.innerHTML = "";
+            sortedStations.forEach(stn => {
+                let opt1 = document.createElement('option'); opt1.value = stn; opt1.innerText = stn;
+                let opt2 = document.createElement('option'); opt2.value = stn; opt2.innerText = stn;
+                fromSel.appendChild(opt1);
+                toSel.appendChild(opt2);
+            });
+            toSel.value = sortedStations[sortedStations.length - 1];
+            document.getElementById('stationSelectDiv').style.display = 'block';
+            document.getElementById('status').innerText = " Ready. Select Route.";
+            document.getElementById('status').style.color = '#4db8ff';
+        }
+
+        function filterAndPlot() {
+            var fromStn = document.getElementById('fromStation').value;
+            var toStn = document.getElementById('toStation').value;
+            if(!fromStn || !toStn) return;
+            var startIndex = globalTrainData.findIndex(row => row[detectedStationKey] == fromStn);
+            var endIndex = -1;
+            for(let i = globalTrainData.length - 1; i >= 0; i--) {
+                if(globalTrainData[i][detectedStationKey] == toStn) { endIndex = i; break; }
+            }
+            if(startIndex === -1 || endIndex === -1 || startIndex > endIndex) { alert("Route error!"); return; }
+            var filteredData = globalTrainData.slice(startIndex, endIndex + 1);
+            document.getElementById('status').innerText = `Running Analysis...`;
+            
+            reportSnapshots = [];
+            document.getElementById('snapCount').innerText = "Snapshots taken: 0";
+            globalOverspeedList = []; 
+            globalMPSUsed = 0;
+            
+            processRun(filteredData);
+        }
+
+        function processRun(trainData) {
+            // FIX: Be cleaner with layer removal to keep tiles
+            map.eachLayer(layer => { 
+                if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+                    if (fsdRouteLayerGroup.hasLayer(layer) || overspeedLayerGroup.hasLayer(layer)) return;
+                    map.removeLayer(layer); 
+                }
+            });
+            overspeedLayerGroup.clearLayers(); 
+            overspeedLayerGroup.addTo(map);
+
+            var path = [];
+            var isStopped = false;
+            var stopCounter = 0;
+            trainData.forEach((row) => {
+                let lat = parseFloat(row['Latitude']);
+                let lng = parseFloat(row['Longitude']);
+                let speed = parseFloat(row['Speed']);
+                let rawTime = row['Time'] || row['Logging Time'] || row['Date Time'] || row['Date'];
+                let time = formatExcelTime(rawTime);
+                if (lat && lng) {
+                    var point = L.latLng(lat, lng);
+                    point.time = time;
+                    point.speed = speed;
+                    point.station = detectedStationKey ? (row[detectedStationKey] || '') : '';
+                    point.tsSec = parseRtisTimestampToSeconds(rawTime);
+                    path.push(point);
+                    let currentIndex = path.length - 1;
+                    if (speed === 0) {
+                        if (!isStopped) {
+                            stopCounter++;
+                            let chartId = `chartCanvas-${stopCounter}`;
+                            let popupContent = `<div style="font-size:14px; font-weight:bold; margin-bottom:5px;"> STOPPAGE ANALYSIS</div><div>Time: ${time}</div><div class="graph-container"><canvas id="${chartId}"></canvas></div>`;
+                            let stopMarker = L.marker([lat, lng], {icon: stopIcon}).addTo(map);
+                            stopMarker.bindPopup(popupContent);
+                            stopMarker.on('popupopen', function() { setTimeout(() => { renderSingleBrakingChart(chartId, path, currentIndex); }, 100); });
+                            isStopped = true;
+                        }
+                    } else { isStopped = false; }
+                }
+            });
+            currentPath = path;
+            if (path.length > 0) {
+                var polyline = L.polyline(path, { color: '#ff3333', weight: 4, opacity: 0.6 }).addTo(map);
+                map.fitBounds(polyline.getBounds());
+                L.marker(path[0], {icon: startIcon}).addTo(map).bindPopup("Start");
+                L.marker(path[path.length - 1], {icon: endIcon}).addTo(map).bindPopup("End");
+                if (loadedSignals.length > 0) { filterAndMatchSignals(loadedSignals, path); } else { matchedSignalsGlobal = []; }
+                analyzeBrakeTests(path);
+                analyzeCautionOrders();
+                document.getElementById('analysisButtons').style.display = 'block';
+                document.getElementById('status').innerText = ` Analysis Complete.`;
+                document.getElementById('status').style.color = '#00ff88';
+            }
+        }
+
+        // --- UPDATED CAUTION ORDER ANALYSIS (SAFE MODE) ---
+        function analyzeCautionOrders() {
+            // Check: Agar Data missing hai, to silently skip karo (Error mat do)
+            if(!globalMastData || Object.keys(globalMastData).length === 0 || 
+               !globalCautionData || globalCautionData.length === 0 || 
+               !currentPath || currentPath.length === 0) {
+                
+                console.log("Skipping Caution Analysis: Optional files not uploaded.");
+                globalCautionAnalysis = []; // Clear old data
+                updateCautionReport(); // UI update karo ki data nahi hai
+                return; // Yahi se wapas jao, aage ka code mat run karo
+            }
+
+            // Agar data hai, to analysis shuru karo
+            globalCautionAnalysis = []; 
+            let trainType = document.getElementById('trainType').value;
+            let colName = trainType === 'GOODS' ? 'Goods' : 'Coaching/Memu';
+
+            globalCautionData.forEach(cdRow => {
+                let fromMast = cdRow['From OHE Mast Number'];
+                let toMast = cdRow['To OHE mast Numnber'];
+                let limit = parseFloat(cdRow[colName]);
+
+                if(fromMast && toMast && limit) {
+                    let startLoc = globalMastData[fromMast.toString().trim()];
+                    let endLoc = globalMastData[toMast.toString().trim()];
+
+                    if(startLoc && endLoc) {
+                        let startIdx = findClosestPathIndex(startLoc);
+                        let endIdx = findClosestPathIndex(endLoc);
+
+                        if(startIdx !== -1 && endIdx !== -1) {
+                            let s = Math.min(startIdx, endIdx);
+                            let e = Math.max(startIdx, endIdx);
+                            let segment = currentPath.slice(s, e + 1);
+                            
+                            if(segment.length > 0) {
+                                let maxSpeedInZone = 0;
+                                segment.forEach(pt => {
+                                    if(pt.speed > maxSpeedInZone) maxSpeedInZone = pt.speed;
+                                });
+
+                                let status = "PASS";
+                                if(maxSpeedInZone > limit + 2) {
+                                    status = "FAIL";
+                                    L.polyline(segment, { color: '#ff0000', weight: 6, opacity: 0.8, dashArray: '10, 10' }).addTo(map)
+                                     .bindPopup(`<b> Caution Violation</b><br>Zone: ${fromMast} to ${toMast}<br>Limit: ${limit} Kmph<br>Actual: ${maxSpeedInZone} Kmph`);
+                                } else {
+                                    status = "PASS";
+                                    L.polyline(segment, { color: '#ffaa00', weight: 5, opacity: 0.6 }).addTo(map)
+                                     .bindPopup(`<b> Caution Zone (Safe)</b><br>Zone: ${fromMast} to ${toMast}<br>Limit: ${limit} Kmph<br>Max: ${maxSpeedInZone} Kmph`);
+                                }
+
+                                globalCautionAnalysis.push({
+                                    from: fromMast, to: toMast, limit: limit, actual: maxSpeedInZone,
+                                    startTime: segment[0].time, endTime: segment[segment.length-1].time, status: status
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+            updateCautionReport();
+        }
+
+        function findClosestPathIndex(targetLoc) {
+            let closestDist = Infinity;
+            let closestIdx = -1;
+            let targetLatLng = L.latLng(targetLoc.lat, targetLoc.lng);
+
+            for(let i=0; i<currentPath.length; i++) {
+                let d = currentPath[i].distanceTo(targetLatLng);
+                if(d < closestDist) {
+                    closestDist = d;
+                    closestIdx = i;
+                }
+            }
+            return closestDist < 300 ? closestIdx : -1; // 300m threshold
+        }
+
+        function updateCautionReport() {
+            let container = document.getElementById('cautionReportContainer');
+            
+            // Agar analysis empty hai (ya file upload nahi hui)
+            if(!globalCautionAnalysis || globalCautionAnalysis.length === 0) {
+                // Check karein ki files upload hui thi ya nahi
+                let missingFiles = [];
+                if(!globalMastData || Object.keys(globalMastData).length === 0) missingFiles.push("Mast Data");
+                if(!globalCautionData || globalCautionData.length === 0) missingFiles.push("Caution Order");
+
+                if(missingFiles.length > 0) {
+                    // Friendly message agar optional files nahi hain
+                    container.innerHTML = `<div style="padding:10px; border:1px dashed #ccc; color:#777; font-style:italic;">
+                         Caution Analysis Skipped (${missingFiles.join(' & ')} not uploaded).
+                    </div>`;
+                } else {
+                    // Files thi par koi zone match nahi hua
+                    container.innerHTML = `<div style="padding:10px; border:1px solid green; color:green;">
+                         Data Loaded but No Caution Zones found on this route.
+                    </div>`;
+                }
+            } else {
+                // Table generation (Same as before)
+                let html = `
+                <table class="report-table">
+                    <thead>
+                        <tr style="background:#ffd1b3;">
+                            <th>Zone (Mast to Mast)</th>
+                            <th>Time</th>
+                            <th>Limit</th>
+                            <th>Actual Max</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                globalCautionAnalysis.forEach(v => {
+                    let statusClass = v.status === "FAIL" ? "fail-badge" : "pass-badge";
+                    let statusText = v.status === "FAIL" ? "FAILED" : "COMPLIED";
+                    let actualColor = v.status === "FAIL" ? "red" : "green";
+
+                    html += `
+                    <tr>
+                        <td>${v.from}  ${v.to}</td>
+                        <td>${v.startTime}</td>
+                        <td>${v.limit}</td>
+                        <td style="color:${actualColor}; font-weight:bold;">${v.actual}</td>
+                        <td class="${statusClass}">${statusText}</td>
+                    </tr>`;
+                });
+                html += `</tbody></table>`;
+                container.innerHTML = html;
+            }
+        }
+        
+        function showCautionModal() {
+            if(!currentPath || currentPath.length === 0) { alert("Run Analysis First!"); return; }
+            
+            // Check if analysis ran
+            if(!globalCautionAnalysis || globalCautionAnalysis.length === 0) {
+                alert("Caution Analysis not performed (Files missing or no zones found).");
+                return;
+            }
+
+            document.getElementById('cautionModal').style.display = 'block';
+            let tbody = document.querySelector('#cautionTable tbody');
+            tbody.innerHTML = "";
+            
+            globalCautionAnalysis.forEach(v => {
+                let statusClass = v.status === "FAIL" ? "status-fail" : "status-pass";
+                let statusText = v.status === "FAIL" ? "FAIL" : "PASS";
+                let row = `<tr>
+                    <td>${v.from}  ${v.to}</td>
+                    <td>${v.startTime}</td>
+                    <td>${v.limit}</td>
+                    <td style="font-weight:bold;">${v.actual}</td>
+                    <td class="${statusClass}">${statusText}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // --- FULL JOURNEY GRAPH LOGIC (UPDATED WITH IMAGE & TAG) ---
+        function buildFullJourneySeries() {
+            let distData = [];
+            let cumDist = 0;
+            distData.push({ x: 0, y: currentPath[0].speed });
+            let indexToDistMap = { 0: 0 };
+            for (let i = 1; i < currentPath.length; i++) {
+                let d = currentPath[i].distanceTo(currentPath[i - 1]);
+                cumDist += d;
+                let kmDist = cumDist / 1000;
+                distData.push({ x: kmDist, y: currentPath[i].speed });
+                indexToDistMap[i] = kmDist;
+            }
+            let signalPoints = [];
+            if (matchedSignalsGlobal && matchedSignalsGlobal.length > 0) {
+                matchedSignalsGlobal.forEach(sig => {
+                    let distKM = indexToDistMap[sig.pathIndex];
+                    if (distKM !== undefined) {
+                        signalPoints.push({ x: distKM, y: sig.crossingSpeed, sigName: sig.signal.name, time: sig.crossingTime });
+                    }
+                });
+            }
+            return { distData, signalPoints, totalDistKm: cumDist / 1000 };
+        }
+
+        function showFullJourneyGraph() {
+            if (!currentPath || currentPath.length === 0) return;
+            document.getElementById('fullGraphModal').style.display = 'block';
+            const series = buildFullJourneySeries();
+            const ctx = document.getElementById('fullJourneyChart').getContext('2d');
+            if (fullJourneyChartInstance) fullJourneyChartInstance.destroy();
+            fullJourneyChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        { label: 'Train Speed', data: series.distData, borderColor: '#00ff88', backgroundColor: 'rgba(0, 255, 136, 0.1)', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.1, order: 2 },
+                        { label: 'Signals', type: 'scatter', data: series.signalPoints, backgroundColor: '#ffaa00', pointStyle: signalChartImg, pointRadius: 10, pointHoverRadius: 15, order: 1 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                    scales: {
+                        x: { type: 'linear', title: { display: true, text: 'Distance (KM)', color: '#fff' }, ticks: { color: '#ddd' }, grid: { color: '#444' }, min: 0, max: series.totalDistKm },
+                        y: { beginAtZero: true, title: { display: true, text: 'Speed (Kmph)', color: '#fff' }, ticks: { color: '#ddd' }, grid: { color: '#444' } }
+                    },
+                    plugins: {
+                        zoom: { zoom: { wheel: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.95)', titleColor: '#fff', bodyColor: '#fff', borderColor: '#ffaa00', borderWidth: 1, padding: 10, displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    let point = context.raw;
+                                    if (point.sigName) return [` SIGNAL: [ ${point.sigName} ]`, ` Time: ${point.time}`, ` Speed: ${point.y} Kmph`, ` Dist: ${point.x.toFixed(3)} Km`];
+                                    return `Speed: ${point.y} Kmph (Dist: ${point.x.toFixed(3)} Km)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        function resetFullGraphZoom() { if(fullJourneyChartInstance) fullJourneyChartInstance.resetZoom(); }
+
+        // --- SAVE & LOAD PROJECT (FIXED) ---
+        function saveProject() {
+            if (!currentPath || currentPath.length === 0) { alert("Analysis First!"); return; }
+            const projectData = {
+                version: "1.2",
+                date: new Date().toISOString(),
+                meta: { fromStation: document.getElementById('fromStation').value, toStation: document.getElementById('toStation').value, trainType: document.getElementById('trainType').value },
+                pathData: currentPath.map(p => ({ lat: p.lat, lng: p.lng, speed: p.speed, time: p.time, station: p.station || '', tsSec: (p.tsSec != null ? p.tsSec : null) })),
+                signals: loadedSignals, 
+                sntData: globalSntData,
+                mastData: globalMastData, // FIX: Saving Mast Data
+                cautionData: globalCautionData, // FIX: Saving Caution Data
+                cautionAnalysis: globalCautionAnalysis, // FIX: Saving Caution Analysis Results
+                fsdRouteFeatures: fsdRouteFeatures,
+                snapshots: reportSnapshots, 
+                overspeedList: globalOverspeedList, 
+                mpsUsed: globalMPSUsed, 
+                bftStatus: globalBftText, 
+                bptStatus: globalBptText
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData));
+            const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", `SPM_Malda_Analysis.json`);
+            document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove();
+        }
+        
+        function loadProject(input) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) { try { const data = JSON.parse(e.target.result); restoreProject(data); } catch (err) { console.error(err); alert("Error!"); } input.value = ''; };
+            reader.readAsText(file);
+        }
+        
+        function restoreProject(data) {
+            document.getElementById('status').innerText = "Restoring Project...";
+            
+            // Restore Dropdowns
+            let fromSel = document.getElementById('fromStation'); 
+            let toSel = document.getElementById('toStation');
+            fromSel.innerHTML = `<option value="${data.meta.fromStation}">${data.meta.fromStation}</option>`; 
+            toSel.innerHTML = `<option value="${data.meta.toStation}">${data.meta.toStation}</option>`;
+            fromSel.value = data.meta.fromStation;
+            toSel.value = data.meta.toStation;
+            document.getElementById('stationSelectDiv').style.display = 'block';
+
+            document.getElementById('trainType').value = data.meta.trainType || "GOODS";
+            
+            // Restore Data
+            loadedSignals = data.signals || []; 
+            globalSntData = data.sntData || [];
+            globalMastData = data.mastData || {}; // FIX: Load Mast Data
+            globalCautionData = data.cautionData || []; // FIX: Load Caution Data
+            globalCautionAnalysis = data.cautionAnalysis || [];
+            fsdRouteFeatures = data.fsdRouteFeatures || [];
+            renderFsdRoutes();
+            
+            reportSnapshots = data.snapshots || []; 
+            globalOverspeedList = data.overspeedList || []; 
+            globalMPSUsed = data.mpsUsed || 0;
+            globalBftText = data.bftStatus || "NOT DONE"; 
+            globalBptText = data.bptStatus || "NOT DONE";
+            
+            document.getElementById('snapCount').innerText = `Snapshots taken: ${reportSnapshots.length}`;
+            document.getElementById('mastStatus').innerText = ` Restored ${Object.keys(globalMastData).length} Masts`;
+            document.getElementById('cdStatus').innerText = ` Restored ${globalCautionData.length} Cautions`;
+            if (globalSntData.length > 0) {
+                const uniqueStations = new Set(globalSntData.map(r => (r.station || '').toString().trim().toUpperCase()).filter(Boolean)).size;
+                document.getElementById('sntStatus').innerText = ` Restored ${globalSntData.length} SNT row(s) from ${uniqueStations} station(s)`;
+                document.getElementById('sntStatus').style.color = '#00ff88';
+            } else {
+                document.getElementById('sntStatus').innerText = 'Waiting...';
+                document.getElementById('sntStatus').style.color = '#bbb';
+            }
+            document.getElementById('mastStatus').style.color = '#00ff88';
+            document.getElementById('cdStatus').style.color = '#00ff88';
+
+            currentPath = data.pathData.map(p => {
+                let point = L.latLng(p.lat, p.lng);
+                point.speed = p.speed;
+                point.time = p.time;
+                point.station = p.station || '';
+                point.tsSec = (p.tsSec != null ? p.tsSec : parseRtisTimestampToSeconds(p.time));
+                return point;
+            });
+            
+            // Clear Map Safely
+            map.eachLayer(layer => { 
+                if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+                    if (fsdRouteLayerGroup.hasLayer(layer) || overspeedLayerGroup.hasLayer(layer)) return;
+                    map.removeLayer(layer); 
+                }
+            });
+            overspeedLayerGroup.clearLayers(); 
+            overspeedLayerGroup.addTo(map);
+
+            if (currentPath.length > 0) {
+                var polyline = L.polyline(currentPath, { color: '#ff3333', weight: 4, opacity: 0.6 }).addTo(map); map.fitBounds(polyline.getBounds());
+                L.marker(currentPath[0], {icon: startIcon}).addTo(map).bindPopup("Start"); L.marker(currentPath[currentPath.length - 1], {icon: endIcon}).addTo(map).bindPopup("End");
+                
+                if (loadedSignals.length > 0) { filterAndMatchSignals(loadedSignals, currentPath); } else { matchedSignalsGlobal = []; }
+                
+                // Re-add Stop Markers
+                let isStopped = false; let stopCounter = 0;
+                currentPath.forEach((pt, idx) => {
+                    if (pt.speed === 0) {
+                        if (!isStopped) {
+                            stopCounter++; let chartId = `chartCanvasRestore-${stopCounter}`;
+                            let popupContent = `<div style="font-size:14px; font-weight:bold; margin-bottom:5px;"> STOPPAGE ANALYSIS</div><div>Time: ${pt.time}</div><div class="graph-container"><canvas id="${chartId}"></canvas></div>`;
+                            let stopMarker = L.marker([pt.lat, pt.lng], {icon: stopIcon}).addTo(map);
+                            stopMarker.bindPopup(popupContent); stopMarker.on('popupopen', function() { setTimeout(() => { renderSingleBrakingChart(chartId, currentPath, idx); }, 100); });
+                            isStopped = true;
+                        }
+                    } else { isStopped = false; }
+                });
+
+                analyzeBrakeTests(currentPath);
+
+                // FIX: Re-run Caution Analysis to paint map lines if data exists
+                if(Object.keys(globalMastData).length > 0 && globalCautionData.length > 0) {
+                    analyzeCautionOrders();
+                }
+
+                if(globalOverspeedList.length > 0 && globalMPSUsed > 0) { document.getElementById('mpsSelect').value = globalMPSUsed; }
+                
+                document.getElementById('analysisButtons').style.display = 'block';
+                document.getElementById('status').innerText = " Project Restored Fully."; document.getElementById('status').style.color = '#00ff88';
+                
+                // Update text reports
+                let osContainer = document.getElementById('overspeedReportContainer'); if(globalOverspeedList.length > 0) { osContainer.innerHTML = `<div style="color: green; padding:10px; border:1px solid green;">Data loaded. Click 'Generate PDF' to view tables.</div>`; }
+                updateCautionReport();
+            }
+        }
+
+        // --- OVERSPEED LOGIC ---
+        function checkOverspeed() {
+            if(!currentPath || currentPath.length === 0) { alert("Please load route first."); return; }
+            overspeedLayerGroup.clearLayers(); globalOverspeedList = []; 
+            let mps = parseFloat(document.getElementById('mpsSelect').value); globalMPSUsed = mps;
+            let incidentCount = 0; let isOverspeeding = false; let startIdx = 0; let maxSpeedInZone = 0;
+            for(let i=0; i<currentPath.length; i++) {
+                let spd = currentPath[i].speed;
+                if(spd > mps) {
+                    if(!isOverspeeding) { startIdx = i; isOverspeeding = true; maxSpeedInZone = spd; }
+                    if(spd > maxSpeedInZone) maxSpeedInZone = spd;
+                } else {
+                    if(isOverspeeding) {
+                        drawOverspeedSegment(startIdx, i, maxSpeedInZone, mps);
+                        globalOverspeedList.push({ sTime: currentPath[startIdx].time, eTime: currentPath[i].time, maxSpd: maxSpeedInZone, dist: getTrackDistance(currentPath, startIdx, i) });
+                        incidentCount++; isOverspeeding = false;
+                    }
+                }
+            }
+            if(isOverspeeding) {
+                drawOverspeedSegment(startIdx, currentPath.length-1, maxSpeedInZone, mps);
+                globalOverspeedList.push({ sTime: currentPath[startIdx].time, eTime: currentPath[currentPath.length-1].time, maxSpd: maxSpeedInZone, dist: getTrackDistance(currentPath, startIdx, currentPath.length-1) });
+                incidentCount++;
+            }
+            if(incidentCount > 0) { alert(` Detected ${incidentCount} overspeed zones above ${mps} Kmph!\nAdded to Map & Report.`); } else { alert(` No overspeeding detected above ${mps} Kmph.`); }
+            // Re-apply caution visual if data exists
+            analyzeCautionOrders();
+        }
+        function drawOverspeedSegment(idx1, idx2, maxSpeed, mps) {
+            let segment = currentPath.slice(idx1, idx2 + 1);
+            let poly = L.polyline(segment, { color: '#00FFFF', weight: 5, opacity: 1, dashArray: '10, 5' }).addTo(overspeedLayerGroup);
+            let startPt = currentPath[idx1];
+            L.marker(startPt, {icon: warnIcon}).addTo(overspeedLayerGroup).bindPopup(`<b style="color:red"> OVERSPEED DETECTED</b><br>MPS Limit: ${mps} Kmph<br>Max Speed Here: ${maxSpeed} Kmph<br>Time: ${startPt.time}`);
+        }
+
+        // --- SNAPSHOT & PDF ---
+        function captureSnapshot() {
+            document.querySelector('.controls').style.display = 'none'; document.querySelector('.leaflet-control-container').style.display = 'none';
+            html2canvas(document.getElementById('map'), { useCORS: true, allowTaint: true, scale: 1 }).then(canvas => {
+                document.querySelector('.controls').style.display = 'block'; document.querySelector('.leaflet-control-container').style.display = 'block';
+                let comment = prompt("Enter a comment for this snapshot (e.g. 'Overspeed at Signal 23'):", "Map View"); if (comment === null) return; 
+                let imgData = canvas.toDataURL("image/png"); reportSnapshots.push({ img: imgData, comment: comment });
+                document.getElementById('snapCount').innerText = `Snapshots taken: ${reportSnapshots.length}`;
+            }).catch(err => { console.error(err); alert("Error capturing map!"); document.querySelector('.controls').style.display = 'block'; document.querySelector('.leaflet-control-container').style.display = 'block'; });
+        }
+
+        function generateFinalReportLogic() {
+            // Snapshot capture can fail on online map tiles due CORS/security.
+            // Do not block report generation when snapshots are unavailable.
+            if (reportSnapshots.length === 0) {
+                document.getElementById('status').innerText = "No snapshots found. Generating report without map snapshots.";
+            }
+            populateAndPrint();
+        }
+
+        function getReportHtmlForWord() {
+            const source = document.querySelector('.report-content-wrapper');
+            const clone = source.cloneNode(true);
+            clone.querySelectorAll('canvas').forEach(canvas => {
+                try {
+                    const img = document.createElement('img');
+                    img.src = canvas.toDataURL('image/png');
+                    img.style.maxWidth = '100%';
+                    img.style.height = 'auto';
+                    canvas.replaceWith(img);
+                } catch (e) {
+                    // keep canvas if conversion fails
+                }
+            });
+            return clone.innerHTML;
+        }
+
+        function downloadWordReport() {
+            const content = getReportHtmlForWord();
+            const html = `<!doctype html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>SPM Malda Detailed Report</title>
+    <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+</head>
+<body>${content}</body>
+</html>`;
+            const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' });
+            triggerBlobDownload(blob, `SPM_Malda_Report_${document.getElementById('fromStation').value}_${document.getElementById('toStation').value}.doc`);
+        }
+
+        function triggerBlobDownload(blob, filename) {
+            const nav = window.navigator;
+            if (nav && typeof nav.msSaveOrOpenBlob === 'function') {
+                nav.msSaveOrOpenBlob(blob, filename);
+                return;
+            }
+            if (window.AndroidDownloader && typeof window.AndroidDownloader.saveBase64File === 'function') {
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    try {
+                        const dataUrl = (reader.result || '').toString();
+                        const commaIdx = dataUrl.indexOf(',');
+                        const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : '';
+                        window.AndroidDownloader.saveBase64File(base64, filename, blob.type || 'application/octet-stream');
+                        document.getElementById('status').innerText = `${filename} saved to Downloads.`;
+                        document.getElementById('status').style.color = '#00ff88';
+                    } catch (err) {
+                        console.error('Android save bridge failed', err);
+                        document.getElementById('status').innerText = `Unable to save ${filename}.`;
+                        document.getElementById('status').style.color = '#ff6666';
+                    }
+                };
+                reader.readAsDataURL(blob);
+                return;
+            }
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.rel = 'noopener';
+            document.body.appendChild(link);
+            try {
+                link.click();
+            } catch (err) {
+                console.error('Direct download click failed', err);
+                window.location.href = url;
+            }
+            document.body.removeChild(link);
+            if (!('download' in HTMLAnchorElement.prototype)) {
+                window.location.href = url;
+            }
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+        }
+
+        function populateAndPrint() {
+            var reportDiv = document.getElementById('printableReport'); reportDiv.style.display = 'block'; window.scrollTo(0,0);
+            
+            // --- NEW LOGIC: DATE EXTRACTION ---
+            let journeyDate = "-";
+            if(globalTrainData && globalTrainData.length > 0) {
+                // Try to find a date-like column
+                let firstRow = globalTrainData[0];
+                let rawVal = firstRow['Date'] || firstRow['date'] || firstRow['Time'] || firstRow['Logging Time'] || firstRow['Event Date'];
+
+                if(rawVal) {
+                     if (typeof rawVal === 'number') {
+                        // Excel Serial Date
+                        let d = new Date(Math.round((rawVal - 25569) * 86400 * 1000));
+                        journeyDate = d.toLocaleDateString('en-GB');
+                    } else {
+                        // String Parsing attempt
+                        let d = new Date(rawVal);
+                        if (!isNaN(d.getTime())) {
+                             journeyDate = d.toLocaleDateString('en-GB');
+                        } else {
+                            // Fallback
+                             journeyDate = String(rawVal).split(' ')[0];
+                        }
+                    }
+                }
+            }
+            document.getElementById('repDateOfJourney').innerText = journeyDate;
+            // ----------------------------------
+
+            let snapContainer = document.getElementById('mapSnapshotsContainer'); snapContainer.innerHTML = "";
+            if(reportSnapshots.length > 0) { let breakDiv = document.createElement('div'); breakDiv.className = 'page-break'; snapContainer.appendChild(breakDiv); }
+            for (let i = 0; i < reportSnapshots.length; i += 3) {
+                let chunk = reportSnapshots.slice(i, i + 3); let pageDiv = document.createElement('div'); pageDiv.className = 'snapshot-page-container';
+                if(i === 0) { let header = document.createElement('h3'); header.className = 'snapshot-heading'; header.innerText = " Route Visualizations"; pageDiv.appendChild(header); }
+                chunk.forEach((snap, idx) => {
+                    let globalIndex = i + idx + 1;
+                    let html = `<div class="snapshot-item"><div class="snapshot-img-box"><img src="${snap.img}" /></div><div class="snapshot-comment"> #${globalIndex}: ${snap.comment}</div></div>`;
+                    pageDiv.innerHTML += html;
+                });
+                snapContainer.appendChild(pageDiv); 
+            }
+            document.getElementById('reportDate').innerText = new Date().toLocaleString();
+            document.getElementById('repFrom').innerText = document.getElementById('fromStation').value; document.getElementById('repTo').innerText = document.getElementById('toStation').value;
+            let totalDistMeters = getTrackDistance(currentPath, 0, currentPath.length-1); document.getElementById('repDist').innerText = (totalDistMeters/1000).toFixed(2) + " km";
+            document.getElementById('repStart').innerText = currentPath[0].time; document.getElementById('repEnd').innerText = currentPath[currentPath.length-1].time;
+            let bftEl = document.getElementById('repBFT'); bftEl.innerText = globalBftText; bftEl.className = globalBftText.includes("DONE") ? "pass-badge" : "fail-badge";
+            let bptEl = document.getElementById('repBPT'); bptEl.innerText = globalBptText; bptEl.className = globalBptText.includes("DONE") ? "pass-badge" : "fail-badge";
+            
+            let tbodyStop = document.querySelector('#stoppageTable tbody'); tbodyStop.innerHTML = ""; let isStopped = false; let stopCount = 0;
+            for(let i=0; i<currentPath.length; i++) {
+                if(currentPath[i].speed === 0) {
+                    if(!isStopped) {
+                        stopCount++; let brakeData = getBrakingData(currentPath, i); 
+                        let s1000 = brakeData.points.find(p => p.x >= 1000)?.y || "-"; let s800 = brakeData.points.find(p => p.x >= 800)?.y || "-"; let s500 = brakeData.points.find(p => p.x >= 500)?.y || "-"; let s100 = brakeData.points.find(p => p.x >= 100)?.y || "-";
+                        let stopIdx = i; let candidates = matchedSignalsGlobal.filter(s => s.pathIndex < stopIdx).sort((a,b) => b.pathIndex - a.pathIndex); let validSignals = [];
+                        for(let s of candidates) { let distToStop = getTrackDistance(currentPath, s.pathIndex, stopIdx); if(distToStop >= 450) { validSignals.push({ speed: s.crossingSpeed, name: s.signal.name }); } if(validSignals.length >= 2) break; }
+                        let firstPrevHtml = formatSignalCell(validSignals[0], true); let secondPrevHtml = formatSignalCell(validSignals[1], false); let sigName = getSignalNameForStop(i);
+                        let row = `<tr><td style="font-size:10px;"><b>${stopCount}</b><br>${sigName}</td> <td>${currentPath[i].time}</td> <td>${secondPrevHtml}</td> <td>${firstPrevHtml}</td><td>${typeof s1000 === 'number' ? Math.round(s1000) : s1000}</td> <td>${typeof s800 === 'number' ? Math.round(s800) : s800}</td><td>${typeof s500 === 'number' ? Math.round(s500) : s500}</td> <td>${typeof s100 === 'number' ? Math.round(s100) : s100}</td></tr>`;
+                        tbodyStop.innerHTML += row; isStopped = true;
+                    }
+                } else { isStopped = false; }
+            }
+
+            let osContainer = document.getElementById('overspeedReportContainer'); osContainer.innerHTML = "";
+            if (globalOverspeedList.length === 0) {
+                let msg = globalMPSUsed > 0 ? ` No Overspeed Incidents Detected (MPS: ${globalMPSUsed} Kmph)` : ` Overspeed Check Not Performed`;
+                osContainer.innerHTML = `<div style="padding:10px; border:1px solid #ccc; background:#f0f0f0; color:#555; font-weight:bold; text-align:center;">${msg}</div>`;
+            } else {
+                let html = `<div style="margin-bottom:10px; font-size:12px;"><b>Analysis MPS Limit:</b> ${globalMPSUsed} Kmph</div><table class="report-table"><thead><tr style="background:#ffcccc;"><th>#</th><th>Start Time</th><th>End Time</th><th>Max Speed (Kmph)</th><th>Duration / Dist (m)</th></tr></thead><tbody>`;
+                globalOverspeedList.forEach((item, index) => { html += `<tr><td>${index + 1}</td><td style="color:#cc0000; font-weight:bold;">${item.sTime}</td><td>${item.eTime}</td><td style="font-weight:bold;">${item.maxSpd}</td><td>${Math.round(item.dist)} m</td></tr>`; });
+                html += `</tbody></table>`; osContainer.innerHTML = html;
+            }
+
+            const ctxRep = document.getElementById('reportChartCanvas').getContext('2d');
+            if (reportChartInstance) reportChartInstance.destroy();
+            let allDatasets = getAggregateDatasets(); let limitedDatasets = allDatasets.slice(0, 10);
+            const reportColors = ['#FF0000', '#0000FF', '#008000', '#FFA500', '#800080', '#00CED1', '#FF00FF', '#A52A2A', '#000080', '#000000'];
+            limitedDatasets.forEach((d, index) => { d.borderWidth = 2.5; d.borderColor = reportColors[index % reportColors.length]; d.pointRadius = 0; d.tension = 0.4; });
+            reportChartInstance = new Chart(ctxRep, { type: 'line', data: { datasets: limitedDatasets }, options: getAggregateChartOptions(false) });
+
+            const fullSeries = buildFullJourneySeries();
+            const reportFullCtx = document.getElementById('reportFullJourneyChart').getContext('2d');
+            if (reportFullJourneyChartInstance) reportFullJourneyChartInstance.destroy();
+            reportFullJourneyChartInstance = new Chart(reportFullCtx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        { label: 'Train Speed', data: fullSeries.distData, borderColor: '#0077cc', backgroundColor: 'rgba(0,119,204,0.10)', borderWidth: 1.6, pointRadius: 0, fill: true, tension: 0.12, order: 2 },
+                        { label: 'Signals', type: 'scatter', data: fullSeries.signalPoints, backgroundColor: '#cc5500', pointStyle: signalChartImg, pointRadius: 7, pointHoverRadius: 10, order: 1 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                    scales: {
+                        x: { type: 'linear', title: { display: true, text: 'Distance (KM)', color: '#000' }, ticks: { color: '#222' }, grid: { color: '#d9d9d9' }, min: 0, max: fullSeries.totalDistKm },
+                        y: { beginAtZero: true, title: { display: true, text: 'Speed (Kmph)', color: '#000' }, ticks: { color: '#222' }, grid: { color: '#d9d9d9' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#000' } },
+                        tooltip: {
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    let point = context.raw;
+                                    if (point.sigName) return [` SIGNAL: [ ${point.sigName} ]`, ` Time: ${point.time}`, ` Speed: ${point.y} Kmph`, ` Dist: ${point.x.toFixed(3)} Km`];
+                                    return `Speed: ${point.y} Kmph (Dist: ${point.x.toFixed(3)} Km)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (reportOutputMode === 'word') {
+                document.getElementById('status').innerText = " Generating Word report... Please wait.";
+                try {
+                    downloadWordReport();
+                    document.getElementById('status').innerText = " Word report downloaded.";
+                } catch (err) {
+                    console.error("Word export failed", err);
+                    alert("Word export failed.");
+                } finally {
+                    reportDiv.style.display = 'none';
+                }
+                return;
+            }
+
+            document.getElementById('status').innerText = " Generating PDF... Please wait.";
+            var opt = { margin: [5, 5, 5, 5], filename: `SPM_Malda_Report_${document.getElementById('fromStation').value}_${document.getElementById('toStation').value}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: document.body.scrollWidth }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } };
+            html2pdf().set(opt).from(document.querySelector('.report-content-wrapper')).save().then(() => {
+                document.getElementById('status').innerText = " PDF Downloaded."; reportDiv.style.display = 'none'; 
+            }).catch(err => { console.error("PDF Failed", err); alert("PDF Generation failed. Switching to Browser Print."); window.print(); });
+        }
+
+        // --- AGGREGATE CHART LOGIC ---
+        function getAggregateDatasets() {
+            let datasets = []; let isStopped = false;
+            for(let i=0; i<currentPath.length; i++) {
+                if(currentPath[i].speed === 0) {
+                    if(!isStopped) {
+                        let result = getBrakingData(currentPath, i); let color = `hsl(${Math.random() * 360}, 100%, 60%)`;
+                        let sigName = getSignalNameForStop(i);
+                        datasets.push({ label: `${sigName} (${currentPath[i].time})`, data: result.points, borderColor: color, borderWidth: 2, pointRadius: 0, pointHoverRadius: 6, tension: 0.4 });
+                        isStopped = true;
+                    }
+                } else { isStopped = false; }
+            }
+            return datasets;
+        }
+        function showAggregateGraph() {
+            if(!currentPath || currentPath.length === 0) return;
+            document.getElementById('chartModal').style.display = 'block';
+            const ctx = document.getElementById('allStopsChart').getContext('2d');
+            if (bigChartInstance) bigChartInstance.destroy();
+            bigChartInstance = new Chart(ctx, { type: 'line', data: { datasets: getAggregateDatasets() }, options: getAggregateChartOptions(true) });
+        }
+
+        // --- COMMON HELPERS ---
+        function getTrackDistance(path, idxStart, idxEnd) {
+            let d = 0; if(idxStart > idxEnd) { let temp = idxStart; idxStart = idxEnd; idxEnd = temp; }
+            for(let k = idxStart; k < idxEnd; k++) { d += path[k].distanceTo(path[k+1]); }
+            return d;
+        }
+        function getBrakingData(path, stopIndex) {
+            let dataPoints = []; let cumulativeDist = 0; dataPoints.push({ x: 0, y: 0 });
+            for (let i = stopIndex; i > 0; i--) {
+                let p1 = path[i]; let p2 = path[i-1]; let dist = p1.distanceTo(p2); cumulativeDist += dist;
+                dataPoints.push({ x: Math.round(cumulativeDist), y: p2.speed }); if (cumulativeDist >= 1200) break;
+            }
+            return { points: dataPoints, labels: dataPoints.map(p => p.x), speed: dataPoints.map(p => p.y) };
+        }
+        function renderSingleBrakingChart(canvasId, path, stopIndex) {
+            const ctx = document.getElementById(canvasId).getContext('2d'); let result = getBrakingData(path, stopIndex);
+            new Chart(ctx, { type: 'line', data: { datasets: [{ label: 'Speed (Kmph)', data: result.points, borderColor: '#00ff88', borderWidth: 2, pointRadius: 1, tension: 0.3 }] }, options: getCommonChartOptions() });
+        }
+        function getCommonChartOptions() {
+            return { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'linear', reverse: true, min: 0, max: 1200, title: { display: true, text: 'Dist (m)', color: '#aaa' }, ticks: { color: '#ddd' }, grid: { color: '#444' } }, y: { beginAtZero: true, title: { display: true, text: 'Speed', color: '#aaa' }, ticks: { color: '#ddd' }, grid: { color: '#444' } } }, plugins: { legend: { display: false } } };
+        }
+        function getAggregateChartOptions(isDark) {
+            let textColor = isDark ? '#ddd' : '#000'; let gridColor = isDark ? '#444' : '#ccc';
+            return { animation: false, responsive: true, maintainAspectRatio: false, interaction: { mode: 'nearest', axis: 'xy', intersect: false }, scales: { x: { type: 'linear', reverse: true, min: 0, max: 1200, title: { display: true, text: 'Distance to Stop (Meters)', color: textColor, font: {weight: 'bold'} }, ticks: { color: textColor }, grid: { color: gridColor } }, y: { beginAtZero: true, title: { display: true, text: 'Speed (Kmph)', color: textColor, font: {weight: 'bold'} }, ticks: { color: textColor }, grid: { color: gridColor } } }, plugins: { legend: { labels: { color: textColor, font: {size: 10} }, position: 'top' }, tooltip: { mode: 'nearest', intersect: false } } };
+        }
+        function highlightSegment(path, startIdx, endIdx, color) { var segment = path.slice(startIdx, endIdx + 1); L.polyline(segment, { color: color, weight: 6, opacity: 1 }).addTo(map).bringToFront(); }
+        function analyzeBrakeTests(path) {
+            var trainType = document.getElementById('trainType').value; const BFT_MIN = 14; const BFT_MAX = 21; const BFT_DROP_REQ = 5;
+            let BPT_MIN, BPT_MAX; if(trainType === 'GOODS') { BPT_MIN = 40; BPT_MAX = 50; } else { BPT_MIN = 60; BPT_MAX = 70; }
+            const BPT_DROP_PERCENT = 0.40; let hasDetectedBFT = false; let hasDetectedBPT = false; let lookingForBFT = true; globalBftText = "NOT DONE"; globalBptText = "NOT DONE";
+            document.getElementById('testReport').style.display = 'block'; document.getElementById('bftStatus').innerText = "NOT DONE"; document.getElementById('bftStatus').className = "status-fail"; document.getElementById('bptStatus').innerText = "NOT DONE"; document.getElementById('bptStatus').className = "status-fail";
+            for (let i = 0; i < path.length; i++) {
+                let p = path[i]; let speed = p.speed;
+                if (speed === 0) { lookingForBFT = true; continue; }
+                if (!hasDetectedBFT && lookingForBFT) {
+                    if (speed > BFT_MAX) { lookingForBFT = false; } else if (speed >= BFT_MIN && speed <= BFT_MAX) {
+                        let currentPeak = speed; let peakIndex = i;
+                        for (let j = i + 1; j < Math.min(path.length, i + 30); j++) {
+                            let futureSpeed = path[j].speed; if (futureSpeed > BFT_MAX + 2) break; if(futureSpeed > currentPeak) { currentPeak = futureSpeed; peakIndex = j; }
+                            if ((currentPeak - futureSpeed) >= BFT_DROP_REQ) { highlightSegment(path, peakIndex, j, '#FFFF00'); L.marker([path[j].lat, path[j].lng], {icon: bftIcon}).addTo(map).bindPopup(`<b> BFT Detected</b><br>Drop: ${currentPeak} -> ${futureSpeed} kmph`); hasDetectedBFT = true; lookingForBFT = false; globalBftText = `DONE (${currentPeak} -> ${futureSpeed} Kmph)`; document.getElementById('bftStatus').innerText = "DONE "; document.getElementById('bftStatus').className = "status-pass"; break; }
+                        }
+                    }
+                }
+                if (!hasDetectedBPT && speed >= BPT_MIN && speed <= BPT_MAX) {
+                    let startSpeed = speed; let targetSpeed = startSpeed * (1 - BPT_DROP_PERCENT); let potentialSuccess = false; let lastSpeed = speed; let jitterCount = 0; let successIndex = -1;
+                    for (let k = i + 1; k < Math.min(path.length, i + 120); k++) { let curSpeed = path[k].speed; if (curSpeed <= targetSpeed) { successIndex = k; potentialSuccess = true; break; } if (curSpeed > lastSpeed + 2) { jitterCount++; if (jitterCount > 2) break; } else { jitterCount = 0; } if (curSpeed === 0) break; lastSpeed = curSpeed; }
+                    if (potentialSuccess && successIndex !== -1) { highlightSegment(path, i, successIndex, '#9933ff'); L.marker([path[successIndex].lat, path[successIndex].lng], {icon: bptIcon}).addTo(map).bindPopup(`<b> BPT Detected</b><br>Drop: ${startSpeed} -> ${path[successIndex].speed} kmph`); hasDetectedBPT = true; globalBptText = `DONE (${startSpeed} -> ${path[successIndex].speed} Kmph)`; document.getElementById('bptStatus').innerText = "DONE "; document.getElementById('bptStatus').className = "status-pass"; }
+                }
+            }
+        }
+        function filterAndMatchSignals(signals, trainPath) {
+            matchedSignalsGlobal = [];
+            signals.forEach(signal => {
+                let sigLatLng = L.latLng(signal.lat, signal.lng); let closestDist = Infinity; let closestIndex = -1;
+                for (let i = 0; i < trainPath.length; i++) { let d = sigLatLng.distanceTo(trainPath[i]); if (d < closestDist) { closestDist = d; closestIndex = i; } }
+                if (closestDist <= SIGNAL_MATCH_RADIUS_M && closestIndex !== -1) { matchedSignalsGlobal.push({ signal: signal, pathIndex: closestIndex, distance: closestDist, crossingTime: trainPath[closestIndex].time, crossingSpeed: trainPath[closestIndex].speed }); }
+            });
+            matchedSignalsGlobal.sort((a, b) => a.pathIndex - b.pathIndex);
+            matchedSignalsGlobal.forEach(item => { 
+                let sMarker = L.marker([item.signal.lat, item.signal.lng], {icon: signalIcon}).addTo(map);
+                let popup = L.popup({ autoClose: false, closeOnClick: false, offset: [0, -30] })
+                             .setContent(`<b> ${item.signal.name}</b><br>Speed: ${item.crossingSpeed} kmph<br>Time: ${item.crossingTime}`);
+                sMarker.bindPopup(popup); 
+                sMarker.off('click'); 
+                sMarker.on('click', function() { if (sMarker.isPopupOpen()) { sMarker.closePopup(); } else { sMarker.openPopup(); } });
+            });
+        }
+        function formatSignalCell(signalObj, isFirstPrev) {
+            if (!signalObj) return "-"; var speed = Math.round(signalObj.speed); var name = signalObj.name; var trainType = document.getElementById('trainType').value; var displayText = `${speed} <span style="font-size:0.85em">(${name})</span>`; var isViolation = false;
+            if (trainType === 'COACHING') { if (isFirstPrev) { if (speed > 60) isViolation = true; } else { if (speed > 70) isViolation = true; } } else { if (isFirstPrev) { if (speed > 40) isViolation = true; } else { if (speed > 50) isViolation = true; } }
+            if (isViolation) { return `<span style="color:red; font-weight:bold;">${displayText}</span>`; } return displayText;
+        }
+        function showStoppageTable() {
+            if(!currentPath || currentPath.length === 0) { alert("Run Analysis First!"); return; } document.getElementById('tableModal').style.display = 'block'; let tbody = document.querySelector('#dashboardTable tbody'); tbody.innerHTML = ""; let isStopped = false; let stopCount = 0;
+            for(let i=0; i<currentPath.length; i++) {
+                if(currentPath[i].speed === 0) {
+                    if(!isStopped) {
+                        stopCount++; let brakeData = getBrakingData(currentPath, i); 
+                        let s1000 = brakeData.points.find(p => p.x >= 1000)?.y || "-"; let s800 = brakeData.points.find(p => p.x >= 800)?.y || "-"; let s500 = brakeData.points.find(p => p.x >= 500)?.y || "-"; let s100 = brakeData.points.find(p => p.x >= 100)?.y || "-";
+                        let stopIdx = i; let candidates = matchedSignalsGlobal.filter(s => s.pathIndex < stopIdx).sort((a,b) => b.pathIndex - a.pathIndex); let validSignals = [];
+                        for(let s of candidates) { let distToStop = getTrackDistance(currentPath, s.pathIndex, stopIdx); if(distToStop >= 450) { validSignals.push({ speed: s.crossingSpeed, name: s.signal.name }); } if(validSignals.length >= 2) break; }
+                        let firstPrevHtml = formatSignalCell(validSignals[0], true); let secondPrevHtml = formatSignalCell(validSignals[1], false); let sigName = getSignalNameForStop(i);
+                        let row = `<tr><td style="font-size:10px;"><b>${stopCount}</b><br>${sigName}</td> <td>${currentPath[i].time}</td> <td>${secondPrevHtml}</td> <td>${firstPrevHtml}</td><td>${typeof s1000 === 'number' ? Math.round(s1000) : s1000}</td> <td>${typeof s800 === 'number' ? Math.round(s800) : s800}</td><td>${typeof s500 === 'number' ? Math.round(s500) : s500}</td> <td>${typeof s100 === 'number' ? Math.round(s100) : s100}</td></tr>`;
+                        tbody.innerHTML += row; isStopped = true;
+                    }
+                } else { isStopped = false; }
+            }
+        }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        window.onclick = function(event) { if (event.target == document.getElementById('chartModal')) { closeModal('chartModal'); } if (event.target == document.getElementById('tableModal')) { closeModal('tableModal'); } if (event.target == document.getElementById('fullGraphModal')) { closeModal('fullGraphModal'); } if (event.target == document.getElementById('crewModal')) { closeModal('crewModal'); } if (event.target == document.getElementById('cautionModal')) { closeModal('cautionModal'); } }
+    </script>
+</body>
+</html>
+
+
+

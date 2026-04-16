@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPM Bulk Analysis with KML</title>
+    <script src="./vendor/tailwindcdn.js"></script>
+    <script src="./vendor/papaparse.min.js"></script>
+    <style>
+        :root {
+            --bg: #f4f8fc;
+            --panel: #ffffff;
+            --line: #d7e4f4;
+            --ink: #102032;
+            --muted: #4f6176;
+            --warn: #991b1b;
+            --soft-red: #fef2f2;
+            --shadow: 0 10px 28px rgba(16, 32, 50, 0.09);
+            --radius: 14px;
+        }
+        body {
+            background:
+                radial-gradient(circle at 0% -20%, #e4f8ef 0, transparent 44%),
+                radial-gradient(circle at 100% -30%, #ffeaca 0, transparent 48%),
+                var(--bg);
+            font-family: "Segoe UI", "Noto Sans", sans-serif;
+            color: var(--ink);
+        }
+        .upload-section { 
+            padding: 1.5rem; 
+            margin-bottom: 1.5rem; 
+            border-radius: var(--radius); 
+            background-color: var(--panel); 
+            box-shadow: var(--shadow);
+            border-left: 4px solid #dc2626;
+            border-top: 1px solid var(--line);
+            border-right: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+        }
+        .upload-section-title { 
+            font-size: 1.25rem; 
+            font-weight: 600; 
+            color: #1f2937; 
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .file-drop-area { 
+            border: 2px dashed #d1d5db; 
+            border-radius: 0.75rem; 
+            padding: 2rem; 
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background-color: #f9fafb;
+        }
+        .file-drop-area:hover { 
+            border-color: #dc2626;
+            background-color: #fef2f2;
+        }
+        .file-drop-area.dragover { 
+            border-color: #dc2626;
+            background-color: #fef2f2;
+        }
+        .visible-file-input {
+            width: 100%;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            color: #1f2937;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+        }
+        .file-list { 
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: #f8fafc;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+        }
+        .file-item { 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .file-item:last-child { border-bottom: none; }
+        .report-section { 
+            background-color: var(--panel);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--line);
+        }
+        .report-title { 
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #991b1b;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        .remove-file-btn { 
+            background-color: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 0.375rem;
+            padding: 0.25rem 0.75rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        .remove-file-btn:hover { background-color: #dc2626; }
+        #loading-spinner { border-top-color: #dc2626; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .report-table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+        }
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+        }
+        .report-table th {
+            background-color: #991b1b;
+            color: white;
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+            position: sticky;
+            top: 0;
+        }
+        .report-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.875rem;
+        }
+        .report-table tr:hover {
+            background-color: #fef2f2;
+        }
+        .no-data {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+            font-style: italic;
+        }
+        .summary-card {
+            background-color: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #dc2626;
+        }
+        .summary-title {
+            font-weight: 600;
+            color: #7f1d1d;
+            margin-bottom: 0.5rem;
+        }
+        .summary-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #dc2626;
+        }
+        .action-btn {
+            background-color: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .action-btn:hover {
+            background-color: #b91c1c;
+        }
+        .action-btn.secondary {
+            background-color: #3b82f6;
+        }
+        .action-btn.secondary:hover {
+            background-color: #2563eb;
+        }
+        .action-btn.success {
+            background-color: #10b981;
+        }
+        .action-btn.success:hover {
+            background-color: #059669;
+        }
+        .action-btn.warning {
+            background-color: #f59e0b;
+        }
+        .action-btn.warning:hover {
+            background-color: #d97706;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            .report-section { box-shadow: none; border: 1px solid #e5e7eb; }
+            .report-table th { background-color: #991b1b !important; -webkit-print-color-adjust: exact; color: white !important; }
+        }
+        .violation-highlight {
+            background-color: #fef2f2;
+            border-left: 4px solid #dc2626;
+        }
+        .exact-match {
+            background-color: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+        }
+        .match-success {
+            color: #10b981;
+            font-weight: bold;
+        }
+        .match-danger {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        .column-mapping {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .column-mapping h4 {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+        .column-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+        .column-item {
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            border: 1px solid #e5e7eb;
+        }
+        .bulk-column {
+            background-color: #dbeafe;
+            color: #1e40af;
+            font-weight: 500;
+        }
+        .rtis-column {
+            background-color: #dcfce7;
+            color: #166534;
+            font-weight: 500;
+        }
+        .gps-column {
+            background-color: #fef3c7;
+            color: #92400e;
+            font-weight: 500;
+        }
+        .exact-time-warning {
+            background-color: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            font-weight: 600;
+            color: #92400e;
+        }
+        .gps-coordinate {
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            background-color: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #374151;
+        }
+        .kml-section {
+            background-color: #e0f2fe;
+            border: 2px solid #0ea5e9;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .kml-option {
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .kml-preview {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+        }
+        .color-picker {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            padding: 0;
+        }
+        .color-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .label-format-example {
+            font-size: 0.75rem;
+            background-color: #f3f4f6;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body class="p-3 md:p-6">
+
+    <div class="max-w-7xl mx-auto bg-white p-4 md:p-8 rounded-2xl shadow-2xl space-y-6 border border-slate-200">
+        <div class="text-center">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-800">SPM Bulk Analysis with Exact Match KML</h1>
+            <p class="text-sm md:text-base text-gray-600">Upload RTIS files and bulk violation reports, find exact-time matches, and export KML for Google Earth.</p>
+        </div>
+
+        <!-- Exact Time Warning -->
+        <div class="exact-time-warning">
+            ⚠️ <strong>EXACT TIME MATCHING:</strong> Signal Time (Bulk) must EXACTLY match Logging Time (RTIS) - NO TIME DIFFERENCE ALLOWED
+        </div>
+
+        <!-- Column Mapping Info -->
+        <div class="column-mapping">
+            <h4>Column Mapping for Exact Match</h4>
+            <div class="column-list">
+                <div class="column-item bulk-column"><strong>Bulk Report Column 1:</strong> Device Id</div>
+                <div class="column-item rtis-column"><strong>RTIS Column 1:</strong> Device Id</div>
+                
+                <div class="column-item bulk-column"><strong>Bulk Report Column 6:</strong> Signal Time</div>
+                <div class="column-item rtis-column"><strong>RTIS Column 2:</strong> Logging Time</div>
+                
+                <div class="column-item bulk-column"><strong>Bulk Report Column 5:</strong> Event Time</div>
+                <div class="column-item rtis-column"><strong>RTIS Column 2:</strong> Logging Time</div>
+                
+                <div class="column-item bulk-column"><strong>Bulk Report Column 10:</strong> Conclusion = "VIOLATION"</div>
+                <div class="column-item rtis-column"><strong>RTIS Column 5:</strong> Speed</div>
+                
+                <div class="column-item gps-column"><strong>RTIS Column 3:</strong> Latitude</div>
+                <div class="column-item gps-column"><strong>RTIS Column 4:</strong> Longitude</div>
+            </div>
+        </div>
+
+        <!-- RTIS Files Upload -->
+        <div class="upload-section">
+            <h2 class="upload-section-title">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Step 1: Upload Multiple RTIS Files
+            </h2>
+            <div id="rtis-drop-area" class="file-drop-area">
+                <input id="rtis-input" type="file" multiple class="visible-file-input" accept=".csv">
+                <div class="text-center">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m-4-4h2m-2 4h-2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                    <p class="mt-1 text-base text-gray-600"><span class="font-medium text-blue-600 hover:text-blue-500">Click to upload</span> or drag and drop</p>
+                    <p class="text-sm text-gray-500">Upload multiple RTIS files (CSV format)</p>
+                    <p class="text-xs text-gray-400 mt-2">Required columns: Device Id (Col 1), Logging Time (Col 2), Latitude (Col 3), Longitude (Col 4), Speed (Col 5)</p>
+                </div>
+            </div>
+            <div id="rtis-file-list" class="file-list hidden">
+                <h4 class="font-medium text-gray-700 mb-2">Uploaded RTIS Files:</h4>
+                <div id="rtis-files-container"></div>
+            </div>
+        </div>
+
+        <!-- Bulk Violation Files Upload -->
+        <div class="upload-section">
+            <h2 class="upload-section-title">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.698-.833-2.464 0L4.346 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+                Step 2: Upload Bulk Violation Report
+            </h2>
+            <div id="bulk-drop-area" class="file-drop-area">
+                <input id="bulk-input" type="file" multiple class="visible-file-input" accept=".csv">
+                <div class="text-center">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                        <path d="M12 22c0-4.97 4.03-9 9-9s9 4.03 9 9M12 22v6h24v-6M12 22c0 4.97 4.03 9 9 9s9-4.03 9-9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                    <p class="mt-1 text-base text-gray-600"><span class="font-medium text-red-600 hover:text-red-500">Click to upload</span> or drag and drop</p>
+                    <p class="text-sm text-gray-500">Upload Bulk Violation Report (CSV format)</p>
+                    <p class="text-xs text-gray-400 mt-2">Required: Conclusion column (Col 10) must contain "VIOLATION"</p>
+                </div>
+            </div>
+            <div id="bulk-file-list" class="file-list hidden">
+                <h4 class="font-medium text-gray-700 mb-2">Uploaded Bulk Violation Files:</h4>
+                <div id="bulk-files-container"></div>
+            </div>
+        </div>
+
+        <!-- Analysis Parameters -->
+        <div class="upload-section">
+            <h2 class="upload-section-title">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Step 3: Configure Analysis
+            </h2>
+            <div class="mb-4">
+                <label for="speed-threshold" class="block text-sm font-medium text-gray-700 mb-2">Speed Threshold (KMPH)</label>
+                <input type="number" id="speed-threshold" value="40" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                <p class="text-xs text-gray-500 mt-1">Highlight matches above this speed</p>
+            </div>
+            
+            <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 class="font-bold text-blue-800 mb-2">Matching Rules Applied:</h4>
+                <ol class="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+                    <li><strong>Filter:</strong> Only rows with "VIOLATION" in Conclusion (Column 10)</li>
+                    <li><strong>Exact Match 1:</strong> Device Id (Bulk Col 1) = Device Id (RTIS Col 1)</li>
+                    <li><strong>Exact Match 2:</strong> Signal Time (Bulk Col 6) = Logging Time (RTIS Col 2)</li>
+                    <li><strong>GPS Extraction:</strong> Latitude & Longitude from RTIS (Col 3 & 4)</li>
+                    <li><strong>Event Time GPS:</strong> Match Event Time (Bulk Col 5) with Logging Time GPS</li>
+                </ol>
+            </div>
+            
+            <div class="mt-6 flex justify-center">
+                <button id="analyze-btn" class="action-btn">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    Find Exact Time Violation Matches
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading Container -->
+        <div id="loading-container" class="mt-8 flex justify-center hidden no-print">
+            <div id="loading-spinner" class="w-16 h-16 border-4 border-gray-200 rounded-full"></div>
+            <p class="ml-4 text-gray-500 self-center text-lg">Processing files and finding exact matches...</p>
+        </div>
+
+        <!-- Report Section -->
+        <div id="report-section" class="report-section hidden">
+            <h2 class="report-title">Exact Time Bulk Violation Matches Report</h2>
+            
+            <!-- Summary Stats -->
+            <div id="summary-section" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="summary-card">
+                    <div class="summary-title">Exact Matches Found</div>
+                    <div id="exact-matches" class="summary-value">0</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-title">Violations in Bulk</div>
+                    <div id="total-violations" class="summary-value">0</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-title">With GPS Location</div>
+                    <div id="gps-matches" class="summary-value">0</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-title">RTIS Files Processed</div>
+                    <div id="rtis-files-count" class="summary-value">0</div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap gap-3 mb-6 no-print">
+                <button id="download-csv" class="action-btn secondary">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Download CSV
+                </button>
+                <button id="print-report" class="action-btn">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                    </svg>
+                    Print Report
+                </button>
+                <button id="copy-table" class="action-btn warning">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                    Copy Table
+                </button>
+            </div>
+
+            <!-- KML Generation Section -->
+            <div id="kml-section" class="kml-section hidden">
+                <h3 class="text-xl font-bold text-blue-800 mb-4">KML File Generation</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- KML Options -->
+                    <div class="kml-option">
+                        <h4 class="font-bold text-gray-700 mb-3">KML Configuration</h4>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Marker Color</label>
+                                <div class="flex gap-2">
+                                    <input type="color" id="marker-color" value="#ff0000" class="color-picker">
+                                    <div class="text-sm text-gray-600">
+                                        <div>Red: #ff0000</div>
+                                        <div class="text-xs">Click to change color</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Label Format</label>
+                                <input type="text" id="label-format" value="{BulkSpeed}/{TrainNo}-{Station}-{Direction}" class="w-full p-2 border border-gray-300 rounded-md">
+                                <div class="label-format-example">
+                                    <strong>Available variables:</strong><br>
+                                    {DeviceId}, {LocoNo}, {TrainNo}, {Station}, {Direction}<br>
+                                    {BulkSpeed}, {RtisSpeed}, {EventTime}, {SignalTime}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Label Font Color</label>
+                                <input type="color" id="font-color" value="#000000" class="color-picker">
+                                <span class="ml-2 text-sm text-gray-600">Text color for labels</span>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Label Font Size</label>
+                                <input type="range" id="font-size" min="0.5" max="2.5" step="0.1" value="1.0" class="w-full">
+                                <div class="text-xs text-gray-500 mt-1 flex justify-between">
+                                    <span>Small</span>
+                                    <span id="font-size-value">1.0</span>
+                                    <span>Large</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Marker Size</label>
+                                <input type="range" id="marker-size" min="0.5" max="3" step="0.1" value="1.2" class="w-full">
+                                <div class="text-xs text-gray-500 mt-1 flex justify-between">
+                                    <span>Small</span>
+                                    <span id="marker-size-value">1.2</span>
+                                    <span>Large</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KML Download Options -->
+                    <div class="kml-option">
+                        <h4 class="font-bold text-gray-700 mb-3">Generate & Download KML</h4>
+                        
+                        <div class="space-y-3">
+                            <button id="generate-kml-preview" class="action-btn secondary w-full">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                Preview KML
+                            </button>
+                            
+                            <div class="p-3 bg-yellow-50 rounded border border-yellow-200">
+                                <h5 class="font-bold text-yellow-800 mb-1">GPS Location Options:</h5>
+                                <div class="space-y-2">
+                                    <label class="flex items-center">
+                                        <input type="radio" name="gps-location" value="event" checked class="mr-2">
+                                        <span class="text-sm">Event Time GPS: {BulkSpeed}/{TrainNo}-{Station}-{Direction}</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="radio" name="gps-location" value="signal" class="mr-2">
+                                        <span class="text-sm">Signal Time GPS: {RTIS Speed}/{TrainNo}-{Station}-{Direction}</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button id="download-all-kml" class="action-btn success w-full">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                Download All KML
+                            </button>
+                            
+                            <button id="download-by-device" class="action-btn w-full">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                </svg>
+                                Download by Device ID
+                            </button>
+                            
+                            <button id="download-by-speed" class="action-btn warning w-full">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                                Download by Speed Range
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KML Preview -->
+                <div id="kml-preview-container" class="hidden mt-4">
+                    <h4 class="font-bold text-gray-700 mb-2">KML Preview (First 3 Placemarks)</h4>
+                    <div id="kml-preview" class="kml-preview">
+                        <!-- KML preview will be displayed here -->
+                    </div>
+                    <div class="mt-2 text-xs text-gray-500">
+                        Preview shows first 3 placemarks. Full KML file contains all matched violations.
+                    </div>
+                </div>
+
+                <!-- Individual KML Downloads -->
+                <div id="individual-kml-container" class="mt-4 hidden">
+                    <h4 class="font-bold text-gray-700 mb-3">Individual KML Files by Device ID</h4>
+                    <div id="kml-files-container" class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <!-- Individual KML download buttons will be added here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Report Table -->
+            <div class="report-table-container">
+                <table class="report-table" id="bulk-report-table">
+                    <thead>
+                        <tr>
+                            <th>RTIS File</th>
+                            <th>Device Id</th>
+                            <th>Loco No.</th>
+                            <th>Train No.</th>
+                            <th>Station</th>
+                            <th>Direction</th>
+                            <th>Event Time</th>
+                            <th>Signal Time = Logging Time</th>
+                            <th>Bulk Speed</th>
+                            <th>RTIS Speed</th>
+                            <th>Match Status</th>
+                            <th>GPS Location at Event Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-table-body">
+                        <!-- Data will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Message Box -->
+        <div id="message-box" class="fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full hidden z-50 no-print">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-xl bg-white">
+                <div class="mt-3 text-center">
+                    <h3 id="message-title" class="text-xl leading-6 font-bold text-gray-900"></h3>
+                    <div class="mt-2 px-7 py-3"><p id="message-content" class="text-sm text-gray-500"></p></div>
+                    <div class="items-center px-4 py-3"><button id="close-message" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-lg w-full shadow-sm hover:bg-blue-600">OK</button></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Data storage
+        let allRtisFiles = [];
+        let bulkFiles = [];
+        let allMatches = [];
+        let eventTimeMatches = [];
+        
+        // DOM Elements
+        const rtisDropArea = document.getElementById('rtis-drop-area');
+        const rtisInput = document.getElementById('rtis-input');
+        const rtisFilesContainer = document.getElementById('rtis-files-container');
+        const rtisFileList = document.getElementById('rtis-file-list');
+        
+        const bulkDropArea = document.getElementById('bulk-drop-area');
+        const bulkInput = document.getElementById('bulk-input');
+        const bulkFilesContainer = document.getElementById('bulk-files-container');
+        const bulkFileList = document.getElementById('bulk-file-list');
+        
+        const speedThresholdInput = document.getElementById('speed-threshold');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const loadingContainer = document.getElementById('loading-container');
+        const reportSection = document.getElementById('report-section');
+        const downloadCsvBtn = document.getElementById('download-csv');
+        const printReportBtn = document.getElementById('print-report');
+        const copyTableBtn = document.getElementById('copy-table');
+        const messageBox = document.getElementById('message-box');
+        const messageTitle = document.getElementById('message-title');
+        const messageContent = document.getElementById('message-content');
+        const closeMessage = document.getElementById('close-message');
+        const reportTableBody = document.getElementById('report-table-body');
+        const kmlSection = document.getElementById('kml-section');
+        const kmlPreviewContainer = document.getElementById('kml-preview-container');
+        const kmlPreview = document.getElementById('kml-preview');
+        const individualKmlContainer = document.getElementById('individual-kml-container');
+        const kmlFilesContainer = document.getElementById('kml-files-container');
+        
+        // KML Configuration Elements
+        const generateKmlPreviewBtn = document.getElementById('generate-kml-preview');
+        const downloadAllKmlBtn = document.getElementById('download-all-kml');
+        const downloadByDeviceBtn = document.getElementById('download-by-device');
+        const downloadBySpeedBtn = document.getElementById('download-by-speed');
+        const markerColorInput = document.getElementById('marker-color');
+        const fontColorInput = document.getElementById('font-color');
+        const fontSizeInput = document.getElementById('font-size');
+        const fontSizeValue = document.getElementById('font-size-value');
+        const labelFormatInput = document.getElementById('label-format');
+        const markerSizeInput = document.getElementById('marker-size');
+        const markerSizeValue = document.getElementById('marker-size-value');
+        
+        // Summary elements
+        const exactMatchesEl = document.getElementById('exact-matches');
+        const totalViolationsEl = document.getElementById('total-violations');
+        const gpsMatchesEl = document.getElementById('gps-matches');
+        const rtisFilesCountEl = document.getElementById('rtis-files-count');
+
+        // Event Listeners
+        closeMessage.addEventListener('click', () => messageBox.classList.add('hidden'));
+        analyzeBtn.addEventListener('click', generateReport);
+        downloadCsvBtn.addEventListener('click', downloadCSV);
+        printReportBtn.addEventListener('click', () => window.print());
+        copyTableBtn.addEventListener('click', copyTableToClipboard);
+        
+        // KML Event Listeners
+        generateKmlPreviewBtn.addEventListener('click', generateKmlPreview);
+        downloadAllKmlBtn.addEventListener('click', downloadAllKML);
+        downloadByDeviceBtn.addEventListener('click', showDeviceKmlOptions);
+        downloadBySpeedBtn.addEventListener('click', showSpeedKmlOptions);
+        markerSizeInput.addEventListener('input', updateMarkerSizeValue);
+        fontSizeInput.addEventListener('input', updateFontSizeValue);
+        markerColorInput.addEventListener('input', updateKmlPreview);
+        fontColorInput.addEventListener('input', updateKmlPreview);
+
+        // Setup file upload areas
+        setupFileUpload(rtisDropArea, rtisInput, 'rtis', rtisFilesContainer, rtisFileList);
+        setupFileUpload(bulkDropArea, bulkInput, 'bulk', bulkFilesContainer, bulkFileList);
+
+        function updateMarkerSizeValue() {
+            markerSizeValue.textContent = markerSizeInput.value;
+        }
+
+        function updateFontSizeValue() {
+            fontSizeValue.textContent = fontSizeInput.value;
+        }
+
+        function setupFileUpload(dropArea, input, type, filesContainer, fileList) {
+            dropArea.addEventListener('click', () => input.click());
+            
+            ['dragover', 'dragenter'].forEach(e => {
+                dropArea.addEventListener(e, (ev) => {
+                    ev.preventDefault();
+                    dropArea.classList.add('dragover');
+                });
+            });
+            
+            ['dragleave', 'drop'].forEach(e => {
+                dropArea.addEventListener(e, (ev) => {
+                    ev.preventDefault();
+                    dropArea.classList.remove('dragover');
+                });
+            });
+            
+            dropArea.addEventListener('drop', (event) => {
+                handleFileSelect(event.dataTransfer.files, type);
+            });
+            
+            input.addEventListener('change', (event) => {
+                handleFileSelect(event.target.files, type);
+            });
+        }
+
+        function handleFileSelect(files, type) {
+            if (files.length === 0) return;
+            
+            loadingContainer.classList.remove('hidden');
+            
+            const filePromises = Array.from(files).map(file => 
+                parseFile(file, type).then(result => {
+                    if (result) {
+                        addFileToList(file, type);
+                    }
+                    return result;
+                }).catch(err => {
+                    console.error(`Error parsing ${type} file:`, err);
+                    showMessage("File Error", `Error parsing ${file.name}: ${err.message}`);
+                    return null;
+                })
+            );
+            
+            Promise.all(filePromises).finally(() => {
+                loadingContainer.classList.add('hidden');
+            });
+        }
+
+        function parseFile(file, type) {
+            return new Promise((resolve, reject) => {
+                Papa.parse(file, {
+                    header: false,
+                    skipEmptyLines: true,
+                    dynamicTyping: false,
+                    complete: (res) => {
+                        try {
+                            if (type === 'rtis') {
+                                const rtisFile = {
+                                    file: file,
+                                    fileName: file.name,
+                                    parsedData: res.data,
+                                    headers: res.data[0] || []
+                                };
+                                allRtisFiles.push(rtisFile);
+                                resolve(rtisFile);
+                            } else if (type === 'bulk') {
+                                const bulkFile = {
+                                    file: file,
+                                    fileName: file.name,
+                                    parsedData: res.data,
+                                    headers: res.data[0] || []
+                                };
+                                bulkFiles.push(bulkFile);
+                                resolve(bulkFile);
+                            }
+                        } catch (error) {
+                            reject(error);
+                        }
+                    },
+                    error: reject
+                });
+            });
+        }
+
+        function addFileToList(file, type) {
+            const container = type === 'rtis' ? rtisFilesContainer : bulkFilesContainer;
+            const fileList = type === 'rtis' ? rtisFileList : bulkFileList;
+            
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+                <div>
+                    <span class="font-medium text-gray-700">${file.name}</span>
+                    <div class="text-xs text-gray-500">
+                        ${type === 'rtis' ? 'RTIS File' : 'Bulk Violation File'} | 
+                        Size: ${(file.size / 1024).toFixed(1)} KB
+                    </div>
+                </div>
+                <button class="remove-file-btn" data-type="${type}" data-filename="${file.name}">Remove</button>
+            `;
+            
+            container.appendChild(fileItem);
+            fileList.classList.remove('hidden');
+            
+            fileItem.querySelector('.remove-file-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeFile(file.name, type);
+                fileItem.remove();
+                if (container.children.length === 0) {
+                    fileList.classList.add('hidden');
+                }
+            });
+        }
+
+        function removeFile(filename, type) {
+            if (type === 'rtis') {
+                allRtisFiles = allRtisFiles.filter(f => f.fileName !== filename);
+            } else if (type === 'bulk') {
+                bulkFiles = bulkFiles.filter(f => f.fileName !== filename);
+            }
+        }
+
+        async function generateReport() {
+            if (allRtisFiles.length === 0) {
+                showMessage("Input Error", "Please upload at least one RTIS file.");
+                return;
+            }
+            
+            if (bulkFiles.length === 0) {
+                showMessage("Input Error", "Please upload at least one Bulk Violation file.");
+                return;
+            }
+            
+            const speedThreshold = parseInt(speedThresholdInput.value) || 40;
+            
+            loadingContainer.classList.remove('hidden');
+            reportSection.classList.add('hidden');
+            kmlSection.classList.add('hidden');
+            kmlPreviewContainer.classList.add('hidden');
+            individualKmlContainer.classList.add('hidden');
+            allMatches = [];
+            eventTimeMatches = [];
+            
+            try {
+                // Process Bulk files to find violations
+                let bulkViolations = [];
+                
+                for (const bulkFile of bulkFiles) {
+                    const violations = processBulkViolations(bulkFile);
+                    bulkViolations = bulkViolations.concat(violations);
+                }
+                
+                console.log(`Found ${bulkViolations.length} violations in Bulk files`);
+                
+                // Create lookup maps for faster matching
+                const signalTimeLookup = new Map();
+                const eventTimeLookup = new Map();
+                
+                bulkViolations.forEach(violation => {
+                    // Key for Signal Time matching (Signal Time = Logging Time)
+                    const signalKey = `${violation.deviceId}_${formatDateTimeExact(violation.signalTime)}`;
+                    signalTimeLookup.set(signalKey, violation);
+                    
+                    // Key for Event Time matching (Event Time = Logging Time)
+                    if (violation.eventTimeObj) {
+                        const eventKey = `${violation.deviceId}_${formatDateTimeExact(violation.eventTimeObj)}`;
+                        eventTimeLookup.set(eventKey, violation);
+                    }
+                });
+                
+                // Process each RTIS file to find matches
+                for (const rtisFile of allRtisFiles) {
+                    // Find Signal Time matches (Signal Time = Logging Time)
+                    const signalMatches = processRTISFileForSignalTime(rtisFile, signalTimeLookup);
+                    allMatches = allMatches.concat(signalMatches);
+                    
+                    // Find Event Time matches (Event Time = Logging Time)
+                    const eventMatches = processRTISFileForEventTime(rtisFile, eventTimeLookup);
+                    eventTimeMatches = eventTimeMatches.concat(eventMatches);
+                }
+                
+                // Display report
+                displayReport(allMatches, speedThreshold, bulkViolations.length);
+                
+                // Show KML section if there are matches with GPS
+                if ((allMatches.length > 0 && allMatches.some(m => m.hasGPS)) || 
+                    (eventTimeMatches.length > 0 && eventTimeMatches.some(m => m.hasGPS))) {
+                    kmlSection.classList.remove('hidden');
+                    updateMarkerSizeValue();
+                    updateFontSizeValue();
+                }
+                
+                loadingContainer.classList.add('hidden');
+                reportSection.classList.remove('hidden');
+                
+                reportSection.scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                loadingContainer.classList.add('hidden');
+                showMessage("Report Generation Error", error.message);
+                console.error(error);
+            }
+        }
+
+        function processBulkViolations(bulkFile) {
+            const violations = [];
+            const data = bulkFile.parsedData;
+            
+            if (!data || data.length < 2) return violations;
+            
+            // Column indices (0-based)
+            const DEVICE_ID_COL = 0;
+            const LOCO_NO_COL = 1;
+            const TRAIN_NO_COL = 2;
+            const STATION_COL = 3;
+            const EVENT_TIME_COL = 4;
+            const SIGNAL_TIME_COL = 5;
+            const SPEED_COL = 6;
+            const DIRECTION_COL = 7;
+            const CONCLUSION_COL = 9;
+            
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                
+                if (row.length <= CONCLUSION_COL) continue;
+                
+                const conclusion = String(row[CONCLUSION_COL] || '').trim().toUpperCase();
+                
+                if (!conclusion.includes('VIOLATION')) continue;
+                
+                const deviceId = String(row[DEVICE_ID_COL] || '').trim();
+                const locoNo = String(row[LOCO_NO_COL] || '').trim();
+                const trainNo = String(row[TRAIN_NO_COL] || '').trim();
+                const station = String(row[STATION_COL] || '').trim();
+                const eventTimeStr = String(row[EVENT_TIME_COL] || '').trim();
+                const signalTimeStr = String(row[SIGNAL_TIME_COL] || '').trim();
+                const speed = parseFloat(row[SPEED_COL]) || 0;
+                const direction = String(row[DIRECTION_COL] || '').trim();
+                
+                if (!deviceId || !signalTimeStr) continue;
+                
+                // Parse times
+                const signalTime = parseDateTimeExact(signalTimeStr);
+                const eventTimeObj = parseDateTimeExact(eventTimeStr);
+                
+                if (isNaN(signalTime.getTime())) continue;
+                
+                violations.push({
+                    deviceId,
+                    locoNo,
+                    trainNo,
+                    station,
+                    eventTime: eventTimeStr,
+                    eventTimeObj: !isNaN(eventTimeObj.getTime()) ? eventTimeObj : null,
+                    signalTime,
+                    signalTimeStr,
+                    speed,
+                    direction,
+                    conclusion,
+                    sourceFile: bulkFile.fileName,
+                    rowIndex: i + 1
+                });
+            }
+            
+            return violations;
+        }
+
+        function processRTISFileForSignalTime(rtisFile, bulkLookup) {
+            const matches = [];
+            const data = rtisFile.parsedData;
+            
+            if (!data || data.length < 2) return matches;
+            
+            const RTIS_DEVICE_ID_COL = 0;
+            const RTIS_LOGGING_TIME_COL = 1;
+            const RTIS_LATITUDE_COL = 2;
+            const RTIS_LONGITUDE_COL = 3;
+            const RTIS_SPEED_COL = 4;
+            
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                
+                if (row.length <= RTIS_SPEED_COL) continue;
+                
+                const rtisDeviceId = String(row[RTIS_DEVICE_ID_COL] || '').trim();
+                const loggingTimeStr = String(row[RTIS_LOGGING_TIME_COL] || '').trim();
+                const latitude = parseFloat(row[RTIS_LATITUDE_COL]);
+                const longitude = parseFloat(row[RTIS_LONGITUDE_COL]);
+                const rtisSpeed = parseFloat(row[RTIS_SPEED_COL]) || 0;
+                
+                if (!rtisDeviceId || !loggingTimeStr || isNaN(latitude) || isNaN(longitude)) continue;
+                
+                const loggingTime = parseDateTimeExact(loggingTimeStr);
+                if (isNaN(loggingTime.getTime())) continue;
+                
+                const key = `${rtisDeviceId}_${formatDateTimeExact(loggingTime)}`;
+                
+                if (bulkLookup.has(key)) {
+                    const violation = bulkLookup.get(key);
+                    
+                    const match = {
+                        matchType: 'signal',
+                        rtisFile: rtisFile.fileName,
+                        deviceId: violation.deviceId,
+                        locoNo: violation.locoNo,
+                        trainNo: violation.trainNo,
+                        station: violation.station,
+                        direction: violation.direction,
+                        eventTime: violation.eventTime,
+                        signalTime: violation.signalTimeStr,
+                        bulkSpeed: violation.speed,
+                        rtisSpeed: rtisSpeed,
+                        latitude: latitude,
+                        longitude: longitude,
+                        gpsLocation: `${latitude.toFixed(14)}, ${longitude.toFixed(14)}`,
+                        matchStatus: '✅ SIGNAL TIME MATCH',
+                        sourceFile: violation.sourceFile,
+                        bulkRow: violation.rowIndex,
+                        rtisRow: i + 1,
+                        loggingTime: formatDateTimeForDisplay(loggingTime),
+                        hasGPS: !isNaN(latitude) && !isNaN(longitude)
+                    };
+                    
+                    matches.push(match);
+                    bulkLookup.delete(key);
+                }
+            }
+            
+            return matches;
+        }
+
+        function processRTISFileForEventTime(rtisFile, bulkLookup) {
+            const matches = [];
+            const data = rtisFile.parsedData;
+            
+            if (!data || data.length < 2) return matches;
+            
+            const RTIS_DEVICE_ID_COL = 0;
+            const RTIS_LOGGING_TIME_COL = 1;
+            const RTIS_LATITUDE_COL = 2;
+            const RTIS_LONGITUDE_COL = 3;
+            const RTIS_SPEED_COL = 4;
+            
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                
+                if (row.length <= RTIS_SPEED_COL) continue;
+                
+                const rtisDeviceId = String(row[RTIS_DEVICE_ID_COL] || '').trim();
+                const loggingTimeStr = String(row[RTIS_LOGGING_TIME_COL] || '').trim();
+                const latitude = parseFloat(row[RTIS_LATITUDE_COL]);
+                const longitude = parseFloat(row[RTIS_LONGITUDE_COL]);
+                const rtisSpeed = parseFloat(row[RTIS_SPEED_COL]) || 0;
+                
+                if (!rtisDeviceId || !loggingTimeStr || isNaN(latitude) || isNaN(longitude)) continue;
+                
+                const loggingTime = parseDateTimeExact(loggingTimeStr);
+                if (isNaN(loggingTime.getTime())) continue;
+                
+                const key = `${rtisDeviceId}_${formatDateTimeExact(loggingTime)}`;
+                
+                if (bulkLookup.has(key)) {
+                    const violation = bulkLookup.get(key);
+                    
+                    const match = {
+                        matchType: 'event',
+                        rtisFile: rtisFile.fileName,
+                        deviceId: violation.deviceId,
+                        locoNo: violation.locoNo,
+                        trainNo: violation.trainNo,
+                        station: violation.station,
+                        direction: violation.direction,
+                        eventTime: violation.eventTime,
+                        signalTime: violation.signalTimeStr,
+                        bulkSpeed: violation.speed,
+                        rtisSpeed: rtisSpeed,
+                        latitude: latitude,
+                        longitude: longitude,
+                        gpsLocation: `${latitude.toFixed(14)}, ${longitude.toFixed(14)}`,
+                        matchStatus: '✅ EVENT TIME MATCH',
+                        sourceFile: violation.sourceFile,
+                        bulkRow: violation.rowIndex,
+                        rtisRow: i + 1,
+                        loggingTime: formatDateTimeForDisplay(loggingTime),
+                        hasGPS: !isNaN(latitude) && !isNaN(longitude)
+                    };
+                    
+                    matches.push(match);
+                    bulkLookup.delete(key);
+                }
+            }
+            
+            return matches;
+        }
+
+        function displayReport(matches, speedThreshold, totalViolations) {
+            reportTableBody.innerHTML = '';
+            kmlFilesContainer.innerHTML = '';
+            
+            exactMatchesEl.textContent = matches.length;
+            totalViolationsEl.textContent = totalViolations;
+            rtisFilesCountEl.textContent = allRtisFiles.length;
+            
+            const gpsMatches = matches.filter(m => m.hasGPS).length;
+            gpsMatchesEl.textContent = gpsMatches;
+            
+            matches.forEach((match) => {
+                const row = document.createElement('tr');
+                if (match.rtisSpeed >= speedThreshold) {
+                    row.className = 'violation-highlight';
+                } else {
+                    row.className = 'exact-match';
+                }
+                
+                row.innerHTML = `
+                    <td class="py-3 px-3">${match.rtisFile}</td>
+                    <td class="py-3 px-3 font-bold">${match.deviceId}</td>
+                    <td class="py-3 px-3">${match.locoNo}</td>
+                    <td class="py-3 px-3">${match.trainNo}</td>
+                    <td class="py-3 px-3 font-semibold">${match.station}</td>
+                    <td class="py-3 px-3">${match.direction}</td>
+                    <td class="py-3 px-3">${match.eventTime}</td>
+                    <td class="py-3 px-3 font-bold text-blue-600">
+                        ${match.signalTime}
+                        <div class="text-xs text-gray-500">(RTIS: ${match.loggingTime})</div>
+                    </td>
+                    <td class="py-3 px-3">${match.bulkSpeed.toFixed(1)}</td>
+                    <td class="py-3 px-3 ${match.rtisSpeed >= speedThreshold ? 'font-bold text-red-600' : ''}">
+                        ${match.rtisSpeed.toFixed(1)}
+                        ${match.rtisSpeed >= speedThreshold ? ' ⚠️' : ''}
+                    </td>
+                    <td class="py-3 px-3 match-success">${match.matchStatus}</td>
+                    <td class="py-3 px-3">
+                        ${match.hasGPS ? 
+                            `<span class="gps-coordinate">${match.gpsLocation}</span>` : 
+                            '<span class="text-gray-400">No GPS</span>'
+                        }
+                    </td>
+                `;
+                
+                reportTableBody.appendChild(row);
+            });
+            
+            if (matches.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="12" class="no-data">
+                        <div class="text-xl font-bold text-red-600 mb-2">NO EXACT MATCHES FOUND</div>
+                        <div class="text-sm text-gray-600">
+                            No violation matches found with EXACT time matching.
+                        </div>
+                    </td>
+                `;
+                reportTableBody.appendChild(row);
+            }
+        }
+
+        // KML Generation Functions
+        function generateKmlPreview() {
+            const gpsLocationType = document.querySelector('input[name="gps-location"]:checked').value;
+            
+            let matchesWithGPS = [];
+            if (gpsLocationType === 'signal') {
+                matchesWithGPS = allMatches.filter(m => m.hasGPS);
+            } else if (gpsLocationType === 'event') {
+                matchesWithGPS = eventTimeMatches.filter(m => m.hasGPS);
+            }
+            
+            if (matchesWithGPS.length === 0) {
+                showMessage("GPS Error", "No matches with GPS coordinates found for selected time.");
+                return;
+            }
+            
+            const previewMatches = matchesWithGPS.slice(0, 3);
+            const kmlContent = generateKMLContent(previewMatches, true, gpsLocationType);
+            
+            kmlPreview.textContent = kmlContent;
+            kmlPreviewContainer.classList.remove('hidden');
+            
+            kmlPreviewContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function updateKmlPreview() {
+            if (kmlPreviewContainer.classList.contains('hidden')) return;
+            generateKmlPreview();
+        }
+
+        function generateKMLContent(matches, isPreview = false, gpsLocationType = 'signal') {
+            const markerColor = hexToKmlColor(markerColorInput.value);
+            const fontColor = hexToKmlColor(fontColorInput.value);
+            const markerSize = parseFloat(markerSizeInput.value);
+            const fontSize = parseFloat(fontSizeInput.value);
+            const labelFormat = labelFormatInput.value;
+            
+            const placemarks = matches.map((match, index) => {
+                // Generate label based on GPS location type
+                let label = '';
+                if (gpsLocationType === 'signal') {
+                    // Signal Time GPS: {RTIS Speed}/{TrainNo}-{Station}-{Direction}
+                    label = `${match.rtisSpeed.toFixed(0)}/${match.trainNo}-${match.station}-${match.direction}`;
+                } else {
+                    // Event Time GPS: {BulkSpeed}/{TrainNo}-{Station}-{Direction}
+                    label = `${match.bulkSpeed.toFixed(0)}/${match.trainNo}-${match.station}-${match.direction}`;
+                }
+                
+                // Use custom format if provided
+                if (labelFormat.trim()) {
+                    label = labelFormat;
+                    label = label.replace(/{DeviceId}/g, match.deviceId);
+                    label = label.replace(/{LocoNo}/g, match.locoNo);
+                    label = label.replace(/{TrainNo}/g, match.trainNo);
+                    label = label.replace(/{Station}/g, match.station);
+                    label = label.replace(/{Direction}/g, match.direction);
+                    label = label.replace(/{BulkSpeed}/g, match.bulkSpeed.toFixed(0));
+                    label = label.replace(/{RtisSpeed}/g, match.rtisSpeed.toFixed(0));
+                    label = label.replace(/{EventTime}/g, match.eventTime);
+                    label = label.replace(/{SignalTime}/g, match.signalTime);
+                }
+                
+                const description = `
+GPS Location Type: ${gpsLocationType === 'signal' ? 'Signal Time GPS' : 'Event Time GPS'}
+Device ID: ${match.deviceId}
+Loco No.: ${match.locoNo}
+Train No.: ${match.trainNo}
+Station: ${match.station}
+Direction: ${match.direction}
+Event Time: ${match.eventTime}
+Signal Time: ${match.signalTime}
+Bulk Speed: ${match.bulkSpeed.toFixed(1)} KMPH
+RTIS Speed: ${match.rtisSpeed.toFixed(1)} KMPH
+GPS Coordinates: ${match.gpsLocation}
+Latitude: ${match.latitude}
+Longitude: ${match.longitude}
+Source File: ${match.sourceFile}
+RTIS File: ${match.rtisFile}
+Match Status: ${match.matchStatus}
+                `.trim();
+                
+                return `
+    <Placemark>
+        <name>${label}</name>
+        <description><![CDATA[${description}]]></description>
+        <Point>
+            <coordinates>${match.longitude},${match.latitude},0</coordinates>
+        </Point>
+        <Style>
+            <IconStyle>
+                <color>${markerColor}</color>
+                <scale>${markerSize}</scale>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png</href>
+                </Icon>
+            </IconStyle>
+            <LabelStyle>
+                <color>${fontColor}</color>
+                <scale>${fontSize}</scale>
+            </LabelStyle>
+        </Style>
+    </Placemark>`;
+            }).join('\n');
+            
+            const totalPoints = isPreview ? ` (Preview of ${matches.length} points)` : ` (${matches.length} points)`;
+            const locationType = gpsLocationType === 'signal' ? 'Signal Time GPS' : 'Event Time GPS';
+            
+            return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+    <name>Bulk Violation Locations - ${locationType}${totalPoints}</name>
+    <description>GPS locations of bulk violations. ${locationType}. Generated on ${new Date().toLocaleString()}</description>
+    ${placemarks}
+</Document>
+</kml>`;
+        }
+
+        function hexToKmlColor(hexColor) {
+            hexColor = hexColor.replace('#', '');
+            if (hexColor.length === 3) {
+                hexColor = hexColor.split('').map(c => c + c).join('');
+            }
+            
+            const r = hexColor.substring(0, 2);
+            const g = hexColor.substring(2, 4);
+            const b = hexColor.substring(4, 6);
+            
+            return `ff${b}${g}${r}`;
+        }
+
+        function downloadAllKML() {
+            const gpsLocationType = document.querySelector('input[name="gps-location"]:checked').value;
+            
+            let matchesWithGPS = [];
+            if (gpsLocationType === 'signal') {
+                matchesWithGPS = allMatches.filter(m => m.hasGPS);
+            } else if (gpsLocationType === 'event') {
+                matchesWithGPS = eventTimeMatches.filter(m => m.hasGPS);
+            }
+            
+            if (matchesWithGPS.length === 0) {
+                showMessage("GPS Error", "No matches with GPS coordinates found.");
+                return;
+            }
+            
+            const kmlContent = generateKMLContent(matchesWithGPS, false, gpsLocationType);
+            const locationType = gpsLocationType === 'signal' ? 'SignalTime' : 'EventTime';
+            downloadKMLFile(kmlContent, `Violations_${locationType}_${new Date().toISOString().slice(0,10)}.kml`);
+        }
+
+        function showDeviceKmlOptions() {
+            const gpsLocationType = document.querySelector('input[name="gps-location"]:checked').value;
+            
+            let matchesWithGPS = [];
+            if (gpsLocationType === 'signal') {
+                matchesWithGPS = allMatches.filter(m => m.hasGPS);
+            } else if (gpsLocationType === 'event') {
+                matchesWithGPS = eventTimeMatches.filter(m => m.hasGPS);
+            }
+            
+            if (matchesWithGPS.length === 0) {
+                showMessage("GPS Error", "No matches with GPS coordinates found.");
+                return;
+            }
+            
+            const deviceGroups = {};
+            matchesWithGPS.forEach(match => {
+                if (!deviceGroups[match.deviceId]) {
+                    deviceGroups[match.deviceId] = [];
+                }
+                deviceGroups[match.deviceId].push(match);
+            });
+            
+            kmlFilesContainer.innerHTML = '';
+            
+            Object.entries(deviceGroups).forEach(([deviceId, matches]) => {
+                const button = document.createElement('button');
+                button.className = 'action-btn secondary flex items-center justify-between';
+                button.innerHTML = `
+                    <span>Device ${deviceId} (${matches.length} points)</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                `;
+                
+                button.addEventListener('click', () => {
+                    const kmlContent = generateKMLContent(matches, false, gpsLocationType);
+                    const locationType = gpsLocationType === 'signal' ? 'SignalTime' : 'EventTime';
+                    downloadKMLFile(kmlContent, `Violations_Device_${deviceId}_${locationType}_${new Date().toISOString().slice(0,10)}.kml`);
+                });
+                
+                kmlFilesContainer.appendChild(button);
+            });
+            
+            individualKmlContainer.classList.remove('hidden');
+            individualKmlContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showSpeedKmlOptions() {
+            const gpsLocationType = document.querySelector('input[name="gps-location"]:checked').value;
+            
+            let matchesWithGPS = [];
+            if (gpsLocationType === 'signal') {
+                matchesWithGPS = allMatches.filter(m => m.hasGPS);
+            } else if (gpsLocationType === 'event') {
+                matchesWithGPS = eventTimeMatches.filter(m => m.hasGPS);
+            }
+            
+            if (matchesWithGPS.length === 0) {
+                showMessage("GPS Error", "No matches with GPS coordinates found.");
+                return;
+            }
+            
+            const speedRanges = [
+                { name: "Low Speed (0-30 KMPH)", min: 0, max: 30 },
+                { name: "Medium Speed (31-60 KMPH)", min: 31, max: 60 },
+                { name: "High Speed (61-90 KMPH)", min: 61, max: 90 },
+                { name: "Very High Speed (91+ KMPH)", min: 91, max: 999 }
+            ];
+            
+            kmlFilesContainer.innerHTML = '';
+            
+            speedRanges.forEach(range => {
+                const matchesInRange = matchesWithGPS.filter(m => 
+                    m.bulkSpeed >= range.min && m.bulkSpeed <= range.max
+                );
+                
+                if (matchesInRange.length === 0) return;
+                
+                const button = document.createElement('button');
+                button.className = 'action-btn warning flex items-center justify-between';
+                button.innerHTML = `
+                    <span>${range.name} (${matchesInRange.length} points)</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                `;
+                
+                button.addEventListener('click', () => {
+                    const kmlContent = generateKMLContent(matchesInRange, false, gpsLocationType);
+                    const locationType = gpsLocationType === 'signal' ? 'SignalTime' : 'EventTime';
+                    const filename = `Violations_Speed_${range.min}-${range.max}_${locationType}_${new Date().toISOString().slice(0,10)}.kml`;
+                    downloadKMLFile(kmlContent, filename);
+                });
+                
+                kmlFilesContainer.appendChild(button);
+            });
+            
+            individualKmlContainer.classList.remove('hidden');
+            individualKmlContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function downloadKMLFile(kmlContent, filename) {
+            const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            
+            link.href = url;
+            link.download = filename;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+            showMessage("KML Download", `KML file "${filename}" downloaded successfully.`);
+        }
+
+        function downloadCSV() {
+            if (allMatches.length === 0 && eventTimeMatches.length === 0) {
+                showMessage("Download Error", "No matches available to download.");
+                return;
+            }
+            
+            const csvData = [
+                ['Match Type', 'RTIS File', 'Device Id', 'Loco No.', 'Train No.', 'Station', 'Direction', 'Event Time', 'Signal Time', 'Bulk Speed', 'RTIS Speed', 'GPS Location', 'Latitude', 'Longitude', 'Match Status', 'Source Bulk File', 'Bulk Row', 'RTIS Row', 'Logging Time']
+            ];
+            
+            // Add signal time matches
+            allMatches.forEach(match => {
+                csvData.push([
+                    'Signal Time Match',
+                    match.rtisFile,
+                    match.deviceId,
+                    match.locoNo,
+                    match.trainNo,
+                    match.station,
+                    match.direction,
+                    match.eventTime,
+                    match.signalTime,
+                    match.bulkSpeed.toFixed(1),
+                    match.rtisSpeed.toFixed(1),
+                    match.gpsLocation,
+                    match.latitude,
+                    match.longitude,
+                    match.matchStatus.replace(/[✅]/g, '').trim(),
+                    match.sourceFile,
+                    match.bulkRow,
+                    match.rtisRow,
+                    match.loggingTime
+                ]);
+            });
+            
+            // Add event time matches
+            eventTimeMatches.forEach(match => {
+                csvData.push([
+                    'Event Time Match',
+                    match.rtisFile,
+                    match.deviceId,
+                    match.locoNo,
+                    match.trainNo,
+                    match.station,
+                    match.direction,
+                    match.eventTime,
+                    match.signalTime,
+                    match.bulkSpeed.toFixed(1),
+                    match.rtisSpeed.toFixed(1),
+                    match.gpsLocation,
+                    match.latitude,
+                    match.longitude,
+                    match.matchStatus.replace(/[✅]/g, '').trim(),
+                    match.sourceFile,
+                    match.bulkRow,
+                    match.rtisRow,
+                    match.loggingTime
+                ]);
+            });
+            
+            const csvString = csvData.map(row => 
+                row.map(cell => `"${cell}"`).join(',')
+            ).join('\n');
+            
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `Violation_Matches_GPS_${new Date().toISOString().slice(0,10)}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showMessage("Download Started", "CSV file with GPS data downloaded successfully.");
+        }
+
+        function copyTableToClipboard() {
+            if (allMatches.length === 0) {
+                showMessage("Copy Error", "No data available to copy.");
+                return;
+            }
+            
+            const headers = ['RTIS File', 'Device Id', 'Loco No.', 'Train No.', 'Station', 'Direction', 'Event Time', 'Signal Time', 'Bulk Speed', 'RTIS Speed', 'GPS Location', 'Status'];
+            const rows = allMatches.map(match => [
+                match.rtisFile,
+                match.deviceId,
+                match.locoNo,
+                match.trainNo,
+                match.station,
+                match.direction,
+                match.eventTime,
+                match.signalTime,
+                match.bulkSpeed.toFixed(1),
+                match.rtisSpeed.toFixed(1),
+                match.gpsLocation,
+                match.matchStatus.replace(/[✅]/g, '')
+            ]);
+            
+            const textToCopy = [
+                headers.join('\t'),
+                ...rows.map(row => row.join('\t'))
+            ].join('\n');
+            
+            navigator.clipboard.writeText(textToCopy)
+                .then(() => showMessage("Success", "Table data copied to clipboard!"))
+                .catch(err => showMessage("Copy Failed", "Failed to copy data to clipboard."));
+        }
+
+        // Utility functions
+        function showMessage(title, content) {
+            messageTitle.textContent = title;
+            messageContent.textContent = content;
+            messageBox.classList.remove('hidden');
+        }
+
+        function formatDateTimeExact(date) {
+            if (!date || isNaN(date.getTime())) return null;
+            const y = date.getFullYear();
+            const mo = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            const h = String(date.getHours()).padStart(2, '0');
+            const m = String(date.getMinutes()).padStart(2, '0');
+            const s = String(date.getSeconds()).padStart(2, '0');
+            return `${y}-${mo}-${d} ${h}:${m}:${s}`;
+        }
+
+        function formatDateTimeForDisplay(date) {
+            if (!date || isNaN(date.getTime())) return null;
+            const y = date.getFullYear();
+            const mo = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            const h = String(date.getHours()).padStart(2, '0');
+            const m = String(date.getMinutes()).padStart(2, '0');
+            const s = String(date.getSeconds()).padStart(2, '0');
+            return `${d}/${mo}/${y} ${h}:${m}:${s}`;
+        }
+
+        function parseDateTimeExact(timestampStr) {
+            if (!timestampStr) return new Date('invalid');
+            
+            timestampStr = timestampStr.trim();
+            let date;
+            
+            if (timestampStr.includes(',')) {
+                const parts = timestampStr.split(',');
+                const datePart = parts[0].trim();
+                const timePart = parts[1].trim();
+                
+                const dateParts = datePart.split('/');
+                if (dateParts.length === 3) {
+                    const day = parseInt(dateParts[0]);
+                    const month = parseInt(dateParts[1]) - 1;
+                    const year = parseInt(dateParts[2]);
+                    
+                    const timeParts = timePart.split(':');
+                    const hour = parseInt(timeParts[0]) || 0;
+                    const minute = parseInt(timeParts[1]) || 0;
+                    const second = parseInt(timeParts[2]) || 0;
+                    
+                    date = new Date(year, month, day, hour, minute, second);
+                }
+            }
+            else if (timestampStr.includes('-') && timestampStr.includes(' ')) {
+                const [datePart, timePart] = timestampStr.split(' ');
+                const [year, month, day] = datePart.split('-').map(Number);
+                const [hour, minute, second] = timePart.split(':').map(Number);
+                
+                date = new Date(year, month - 1, day, hour, minute, second);
+            }
+            else if (timestampStr.includes('/') && timestampStr.includes(' ')) {
+                const parts = timestampStr.split(' ');
+                if (parts.length >= 2) {
+                    const datePart = parts[0];
+                    const timePart = parts[1];
+                    
+                    const dateParts = datePart.split('/');
+                    if (dateParts.length === 3) {
+                        const day = parseInt(dateParts[0]);
+                        const month = parseInt(dateParts[1]) - 1;
+                        const year = parseInt(dateParts[2]);
+                        
+                        const timeParts = timePart.split(':');
+                        const hour = parseInt(timeParts[0]) || 0;
+                        const minute = parseInt(timeParts[1]) || 0;
+                        const second = parseInt(timeParts[2]) || 0;
+                        
+                        date = new Date(year, month, day, hour, minute, second);
+                    }
+                }
+            }
+            else if (timestampStr.includes('T')) {
+                date = new Date(timestampStr);
+            }
+            else {
+                date = new Date(timestampStr);
+            }
+            
+            if (date && !isNaN(date.getTime())) {
+                return date;
+            }
+            
+            return new Date('invalid');
+        }
+    });
+</script>
+
+</body>
+</html>
