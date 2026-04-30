@@ -1184,9 +1184,16 @@
                 if (allRoutes.length > 0) {
                     fsdRouteFeatures = allRoutes;
                     renderFsdRoutes();
+                    const routeSignals = extractSignalsFromRoutes(fsdRouteFeatures);
+                    loadedSignals = mergeSignals(loadedSignals, routeSignals);
                     const pointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
-                    document.getElementById('sntStatus').innerText = `Loaded ${fsdRouteFeatures.length} route(s), ${pointCount} point(s).`;
+                    document.getElementById('sntStatus').innerText = `Loaded ${fsdRouteFeatures.length} route(s), ${pointCount} point(s), ${routeSignals.length} signal reference(s).`;
+                    document.getElementById('signalStatus').innerText = `Route signals available: ${loadedSignals.length}.`;
+                    document.getElementById('signalStatus').style.color = '#00ff88';
                     document.getElementById('sntStatus').style.color = '#00ff88';
+                    if (currentPath && currentPath.length > 0) {
+                        filterAndMatchSignals(loadedSignals, currentPath);
+                    }
                 } else {
                     document.getElementById('sntStatus').innerText = 'No valid route points found in selected file(s).';
                     document.getElementById('sntStatus').style.color = '#ff6666';
@@ -1271,9 +1278,16 @@
                 if (allRoutes.length > 0) {
                     fsdRouteFeatures = allRoutes;
                     renderFsdRoutes();
+                    const routeSignals = extractSignalsFromRoutes(fsdRouteFeatures);
+                    loadedSignals = mergeSignals(loadedSignals, routeSignals);
                     const pointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
-                    document.getElementById('fsdStatus').innerText = `Loaded ${fsdRouteFeatures.length} FSD route(s), ${pointCount} point(s).`;
+                    document.getElementById('fsdStatus').innerText = `Loaded ${fsdRouteFeatures.length} FSD route(s), ${pointCount} point(s), ${routeSignals.length} signal reference(s).`;
+                    document.getElementById('signalStatus').innerText = `Route signals available: ${loadedSignals.length}.`;
+                    document.getElementById('signalStatus').style.color = '#00ff88';
                     document.getElementById('fsdStatus').style.color = '#00ff88';
+                    if (currentPath && currentPath.length > 0) {
+                        filterAndMatchSignals(loadedSignals, currentPath);
+                    }
                 } else {
                     document.getElementById('fsdStatus').innerText = "No valid route points found.";
                     document.getElementById('fsdStatus').style.color = '#ff6666';
@@ -1340,6 +1354,23 @@
         function getRouteColor(i) {
             const palette = ['#00e5ff', '#ff6b6b', '#ffd166', '#7ae582', '#a78bfa', '#4cc9f0', '#f72585'];
             return palette[i % palette.length];
+        }
+
+        function extractSignalsFromRoutes(routes) {
+            const signals = [];
+            (routes || []).forEach(route => {
+                const names = route.pointNames || [];
+                (route.coords || []).forEach((point, idx) => {
+                    const rawName = (names[idx] || '').toString().trim();
+                    if (!rawName) return;
+                    signals.push({
+                        name: rawName,
+                        lat: point.lat,
+                        lng: point.lng
+                    });
+                });
+            });
+            return signals;
         }
 
         function parseFsdTextByType(text, fileName) {
