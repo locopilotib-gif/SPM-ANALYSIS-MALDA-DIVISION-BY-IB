@@ -3,14 +3,19 @@ package com.imanbiswas.spmanalysis;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Base64;
 import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
+import android.webkit.JavascriptInterface;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -21,6 +26,10 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 
 public class MainActivity extends Activity {
     private static final String HOME_URL = "https://locopilotib-gif.github.io/SPM-ANALYSIS-MALDA-DIVISION-BY-IB/";
@@ -78,6 +87,7 @@ public class MainActivity extends Activity {
 
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
+        webView.addJavascriptInterface(new AndroidDownloaderBridge(this), "AndroidDownloader");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -200,5 +210,59 @@ public class MainActivity extends Activity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private static class AndroidDownloaderBridge {
+        private final Context context;
+
+        AndroidDownloaderBridge(Context context) {
+            this.context = context.getApplicationContext();
+        }
+
+        @JavascriptInterface
+        public void saveBase64File(String base64, String fileName, String mimeType) {
+            try {
+                byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+                String safeName = sanitizeFileName(fileName);
+                String type = (mimeType == null || mimeType.trim().isEmpty())
+                        ? "application/octet-stream"
+                        : mimeType;
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
+                    values.put(MediaStore.Downloads.MIME_TYPE, type);
+                    values.put(MediaStore.Downloads.IS_PENDING, 1);
+
+                    Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                    if (uri == null) throw new IllegalStateException("Could not create download file");
+
+                    try (OutputStream out = context.getContentResolver().openOutputStream(uri)) {
+                        if (out == null) throw new IllegalStateException("Could not open download file");
+                        out.write(bytes);
+                    }
+
+                    values.clear();
+                    values.put(MediaStore.Downloads.IS_PENDING, 0);
+                    context.getContentResolver().update(uri, values, null, null);
+                } else {
+                    File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    if (!dir.exists() && !dir.mkdirs()) {
+                        throw new IllegalStateException("Could not open Downloads folder");
+                    }
+                    File outFile = new File(dir, safeName);
+                    try (FileOutputStream out = new FileOutputStream(outFile)) {
+                        out.write(bytes);
+                    }
+                }
+            } catch (Exception ex) {
+                Toast.makeText(context, "Download failed", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        private String sanitizeFileName(String fileName) {
+            String name = (fileName == null || fileName.trim().isEmpty()) ? "SPM_Download" : fileName.trim();
+            return name.replaceAll("[\\\\/:*?\"<>|]", "_");
+        }
     }
 }

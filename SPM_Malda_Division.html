@@ -2037,9 +2037,8 @@
                 bftStatus: globalBftText, 
                 bptStatus: globalBptText
             };
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData));
-            const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", `SPM_Malda_Analysis.json`);
-            document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove();
+            const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json;charset=utf-8' });
+            triggerBlobDownload(blob, `SPM_Malda_Analysis.json`);
         }
         
         function loadProject(input) {
