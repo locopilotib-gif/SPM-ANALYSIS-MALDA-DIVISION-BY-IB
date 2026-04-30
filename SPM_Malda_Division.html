@@ -940,13 +940,13 @@
         }
 
         function getNearestRouteSignalName(stopIndex) {
-            if (!currentPath || !currentPath[stopIndex] || !fsdRouteFeatures || fsdRouteFeatures.length === 0) return null;
+            const routeSource = getRouteSignalSourceRoutes();
+            if (!currentPath || !currentPath[stopIndex] || routeSource.length === 0) return null;
             const stopLatLng = currentPath[stopIndex];
             let best = null;
-            fsdRouteFeatures.forEach(route => {
-                const names = route.pointNames || [];
+            routeSource.forEach(route => {
                 (route.coords || []).forEach((point, idx) => {
-                    const name = (names[idx] || '').toString().trim();
+                    const name = getRoutePointName(route, idx);
                     if (!name) return;
                     const distance = stopLatLng.distanceTo(point);
                     if (!best || distance < best.distance) {
@@ -954,7 +954,21 @@
                     }
                 });
             });
-            return best && best.distance <= ROUTE_SIGNAL_MATCH_RADIUS_M ? best.name : null;
+            return best ? best.name : null;
+        }
+
+        function getRouteSignalSourceRoutes() {
+            if (Array.isArray(fsdAllRouteFeatures) && fsdAllRouteFeatures.length > 0) return fsdAllRouteFeatures;
+            if (Array.isArray(fsdRouteFeatures) && fsdRouteFeatures.length > 0) return fsdRouteFeatures;
+            return [];
+        }
+
+        function getRoutePointName(route, idx) {
+            const names = route && route.pointNames ? route.pointNames : [];
+            const rawName = (names[idx] || '').toString().trim();
+            if (rawName) return rawName;
+            const routeName = (route && route.name ? route.name : 'Route').toString().trim();
+            return `${routeName} point ${idx + 1}`;
         }
 
         // --- SMART BULK UPLOAD LOGIC ---
@@ -1234,7 +1248,7 @@
                 if (allRoutes.length > 0) {
                     fsdAllRouteFeatures = allRoutes;
                     updateFsdRoutesForCurrentPath();
-                    const routeSignals = extractSignalsFromRoutes(fsdRouteFeatures);
+                    const routeSignals = extractSignalsFromRoutes(getRouteSignalSourceRoutes());
                     loadedSignals = removeRouteSignals(loadedSignals);
                     loadedSignals = mergeSignals(loadedSignals, routeSignals);
                     const totalPointCount = fsdAllRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
@@ -1331,7 +1345,7 @@
                 if (allRoutes.length > 0) {
                     fsdAllRouteFeatures = allRoutes;
                     updateFsdRoutesForCurrentPath();
-                    const routeSignals = extractSignalsFromRoutes(fsdRouteFeatures);
+                    const routeSignals = extractSignalsFromRoutes(getRouteSignalSourceRoutes());
                     loadedSignals = removeRouteSignals(loadedSignals);
                     loadedSignals = mergeSignals(loadedSignals, routeSignals);
                     const totalPointCount = fsdAllRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
@@ -1374,7 +1388,8 @@
             if (name.endsWith('.zip') || name.endsWith('.kmz')) {
                 if (!window.JSZip) throw new Error('JSZip library not loaded');
                 const routes = [];
-                const zip = await JSZip.loadAsync(file);
+                const zipData = await file.arrayBuffer();
+                const zip = await JSZip.loadAsync(zipData);
                 const entries = Object.keys(zip.files).filter(k => !zip.files[k].dir);
                 for (const entryName of entries) {
                     const lower = entryName.toLowerCase();
@@ -1425,9 +1440,8 @@
         function extractSignalsFromRoutes(routes) {
             const signals = [];
             (routes || []).forEach(route => {
-                const names = route.pointNames || [];
                 (route.coords || []).forEach((point, idx) => {
-                    const rawName = (names[idx] || '').toString().trim();
+                    const rawName = getRoutePointName(route, idx);
                     if (!rawName) return;
                     signals.push({
                         name: rawName,
@@ -1795,7 +1809,7 @@
             if (path.length > 0) {
                 updateFsdRoutesForCurrentPath();
                 if (fsdRouteFeatures.length > 0) {
-                    const routeSignals = extractSignalsFromRoutes(fsdRouteFeatures);
+                    const routeSignals = extractSignalsFromRoutes(getRouteSignalSourceRoutes());
                     loadedSignals = removeRouteSignals(loadedSignals);
                     loadedSignals = mergeSignals(loadedSignals, routeSignals);
                     document.getElementById('sntStatus').innerText = `Suitable routes selected: ${fsdRouteFeatures.length}. ${fsdRouteMatchSummary || ''}`;
@@ -2517,7 +2531,7 @@
                 const matchRadius = signal.matchRadius || SIGNAL_MATCH_RADIUS_M;
                 if (closestDist <= matchRadius && closestIndex !== -1) { matchedSignalsGlobal.push({ signal: signal, pathIndex: closestIndex, distance: closestDist, crossingTime: trainPath[closestIndex].time, crossingSpeed: trainPath[closestIndex].speed }); }
             });
-            const hasRouteFallback = fsdRouteFeatures && fsdRouteFeatures.some(route => (route.pointNames || []).some(name => (name || '').toString().trim()));
+            const hasRouteFallback = getRouteSignalSourceRoutes().some(route => route.coords && route.coords.length > 0);
             document.getElementById('signalStatus').innerText = matchedSignalsGlobal.length > 0 ? `Matched ${matchedSignalsGlobal.length} signal reference(s).` : (hasRouteFallback ? `Using nearest Multiple Routes CSV point names for signal data.` : `No signal matched. Try loading correct Multiple Routes ZIP/CSV.`);
             document.getElementById('signalStatus').style.color = matchedSignalsGlobal.length > 0 || hasRouteFallback ? '#00ff88' : '#ff6666';
             matchedSignalsGlobal.sort((a, b) => a.pathIndex - b.pathIndex);
