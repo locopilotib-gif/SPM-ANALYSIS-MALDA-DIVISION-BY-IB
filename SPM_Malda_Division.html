@@ -311,8 +311,8 @@
         </div>
         <div class="section">
             <label>2a. Multiple Routes</label>
-            <div style="font-size:10px; color:#667085; margin-bottom:5px;">Select many ROUTE CSV files, ZIP/KMZ bundles, KML, GeoJSON, or spreadsheet route files.</div>
-            <input type="file" id="sntUpload" multiple accept=".zip,.kmz,.csv,.kml,.geojson,.json,.xls,.xlsx,.xlsm,.xlsb,.xltx,.xltm,.ods" />
+            <div style="font-size:10px; color:#667085; margin-bottom:5px;">Select many ROUTE CSV files, ZIP/KMZ/7Z bundles, KML, GeoJSON, or spreadsheet route files.</div>
+            <input type="file" id="sntUpload" multiple accept=".zip,.kmz,.7z,.7zip,.csv,.kml,.geojson,.json,.xls,.xlsx,.xlsm,.xlsb,.xltx,.xltm,.ods" />
             <div id="sntStatus" style="font-size:11px; color:#bbb;">Waiting...</div>
         </div>
 
@@ -330,7 +330,7 @@
         <div class="section" style="display:none;">
             <label>2d. Upload FSD Route GPS Reference</label>
             <div style="font-size:10px; color:#667085; margin-bottom:5px;">Supports ROUTE CSV format: route name in first row, Lat/Lon as DDMM.MMMM.</div>
-            <input type="file" id="fsdInput" multiple accept=".zip,.kmz,.csv,.kml,.geojson,.json,.xls,.xlsx,.xlsm,.xlsb,.xltx,.xltm,.ods" />
+            <input type="file" id="fsdInput" multiple accept=".zip,.kmz,.7z,.7zip,.csv,.kml,.geojson,.json,.xls,.xlsx,.xlsm,.xlsb,.xltx,.xltm,.ods" />
             <div id="fsdStatus" style="font-size:11px; color:#bbb;">Not Uploaded (Optional)</div>
             <button class="btn-caution" onclick="clearFsdReference()">Clear FSD Route Overlay</button>
         </div>
@@ -1193,7 +1193,7 @@
                 }
             } catch (err) {
                 console.error('Multiple routes upload parse failed', err);
-                document.getElementById('sntStatus').innerText = 'Multiple Routes upload failed. Check ZIP/CSV/KML/GeoJSON/spreadsheet format.';
+                document.getElementById('sntStatus').innerText = 'Multiple Routes upload failed. Use CSV/KML/GeoJSON/spreadsheet or ZIP/KMZ. 7Z appears in the picker but must be extracted first.';
                 document.getElementById('sntStatus').style.color = '#ff6666';
             }
         });
@@ -1294,6 +1294,9 @@
 
         async function parseFsdInputFile(file) {
             const name = file.name.toLowerCase();
+            if (name.endsWith('.7z') || name.endsWith('.7zip')) {
+                throw new Error('7Z archives are listed for selection, but browser parsing needs extraction to ZIP/KMZ or route CSV first.');
+            }
             if (name.endsWith('.zip') || name.endsWith('.kmz')) {
                 if (!window.JSZip) throw new Error('JSZip library not loaded');
                 const routes = [];
