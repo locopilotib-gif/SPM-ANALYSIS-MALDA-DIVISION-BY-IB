@@ -326,8 +326,9 @@
             <input type="file" id="cdUpload" accept=".xlsx, .csv" />
             <div id="cdStatus" style="font-size:11px; color:#bbb;">Not Uploaded (Optional)</div>
         </div>
-        <div class="section" style="display:none;">
-            <label>2d. Upload FSD Routes GPS Reference</label>
+        <div class="section">
+            <label>2d. Upload FSD Route GPS Reference</label>
+            <div style="font-size:10px; color:#667085; margin-bottom:5px;">Supports ROUTE CSV format: route name in first row, Lat/Lon as DDMM.MMMM.</div>
             <input type="file" id="fsdInput" multiple accept=".zip,.csv,.xls,.xlsx,.xlsm,.xlsb,.xltx,.xltm,.ods" />
             <div id="fsdStatus" style="font-size:11px; color:#bbb;">Not Uploaded (Optional)</div>
             <button class="btn-caution" onclick="clearFsdReference()">Clear FSD Route Overlay</button>
@@ -1284,7 +1285,8 @@
                 if (allRoutes.length > 0) {
                     fsdRouteFeatures = allRoutes;
                     renderFsdRoutes();
-                    document.getElementById('fsdStatus').innerText = `Loaded ${fsdRouteFeatures.length} FSD reference route(s).`;
+                    const pointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
+                    document.getElementById('fsdStatus').innerText = `Loaded ${fsdRouteFeatures.length} FSD route(s), ${pointCount} point(s).`;
                     document.getElementById('fsdStatus').style.color = '#00ff88';
                 } else {
                     document.getElementById('fsdStatus').innerText = "No valid route points found.";
@@ -1341,7 +1343,7 @@
             fsdRouteFeatures.forEach((route, i) => {
                 const color = getRouteColor(i);
                 L.polyline(route.coords, { color, weight: 3, opacity: 0.78, dashArray: '8 4' })
-                    .bindPopup(`<b>FSD Route</b><br>${route.name}<br>Points: ${route.coords.length}`)
+                    .bindPopup(`<b>FSD Route</b><br>${route.name}<br>Points: ${route.coords.length}${route.format ? `<br>Format: ${route.format}` : ''}`)
                     .addTo(fsdRouteLayerGroup);
             });
         }
@@ -1410,20 +1412,100 @@
         }
 
         function parseCsvRoutes(csvText, fileName) {
-            const rows = csvText.split(/\r?\n/).filter(r => r.trim());
+            const rows = parseCsvRows(csvText).filter(r => r.some(c => String(c || '').trim()));
             if (rows.length < 2) return [];
-            const headers = rows[0].split(',').map(h => h.trim().toLowerCase());
+            const route1Routes = parseRailwayRouteCsv(rows, fileName);
+            if (route1Routes.length > 0) return route1Routes;
+
+            const headers = rows[0].map(h => String(h || '').trim().toLowerCase());
             const latIdx = headers.findIndex(h => ['lat', 'latitude', 'y'].includes(h));
             const lngIdx = headers.findIndex(h => ['lng', 'long', 'longitude', 'x'].includes(h));
             if (latIdx < 0 || lngIdx < 0) return [];
             const coords = [];
             for (let i = 1; i < rows.length; i++) {
-                const cols = rows[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+                const cols = rows[i].map(v => String(v || '').trim());
                 const lat = parseFloat(cols[latIdx]);
                 const lng = parseFloat(cols[lngIdx]);
                 if (isFinite(lat) && isFinite(lng)) coords.push(L.latLng(lat, lng));
             }
             return coords.length >= 2 ? [{ name: fileName, coords }] : [];
+        }
+
+        function parseCsvRows(csvText) {
+            const rows = [];
+            let row = [];
+            let cell = '';
+            let inQuotes = false;
+            for (let i = 0; i < csvText.length; i++) {
+                const ch = csvText[i];
+                const next = csvText[i + 1];
+                if (ch === '"') {
+                    if (inQuotes && next === '"') {
+                        cell += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (ch === ',' && !inQuotes) {
+                    row.push(cell.trim());
+                    cell = '';
+                } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+                    if (ch === '\r' && next === '\n') i++;
+                    row.push(cell.trim());
+                    rows.push(row);
+                    row = [];
+                    cell = '';
+                } else {
+                    cell += ch;
+                }
+            }
+            if (cell.length || row.length) {
+                row.push(cell.trim());
+                rows.push(row);
+            }
+            return rows;
+        }
+
+        function parseRailwayRouteCsv(rows, fileName) {
+            const routeName = rows[0]?.[1]?.toString().trim() || fileName;
+            const coords = [];
+            const pointNames = [];
+
+            for (let i = 1; i < rows.length; i++) {
+                const cols = rows[i];
+                if (cols.length < 7) continue;
+                const lat = parseRailwayCoordinate(cols[5], 'lat');
+                const lng = parseRailwayCoordinate(cols[6], 'lng');
+                if (lat == null || lng == null) continue;
+                coords.push(L.latLng(lat, lng));
+                pointNames.push([cols[1], cols[2]].filter(Boolean).join(' - '));
+            }
+
+            if (coords.length < 2) return [];
+            return [{
+                name: `${routeName} (${fileName})`,
+                coords,
+                pointNames,
+                format: 'ROUTE CSV DDMM.MMMM'
+            }];
+        }
+
+        function parseRailwayCoordinate(value, type) {
+            if (value == null || value === '') return null;
+            const cleaned = String(value).trim().replace(/[^\d.+-]/g, '');
+            const num = parseFloat(cleaned);
+            if (!isFinite(num)) return null;
+
+            const abs = Math.abs(num);
+            const decimalLimit = type === 'lat' ? 90 : 180;
+            if (abs <= decimalLimit) return num;
+
+            const degrees = Math.floor(abs / 100);
+            const minutes = abs - (degrees * 100);
+            if (minutes >= 60) return null;
+
+            const decimal = degrees + (minutes / 60);
+            return num < 0 ? -decimal : decimal;
         }
 
         function parseFsdSpreadsheet(arrayBuffer, fileName) {
@@ -2291,5 +2373,4 @@
     </script>
 </body>
 </html>
-
 
