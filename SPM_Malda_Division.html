@@ -179,6 +179,63 @@
             }
         }
 
+        @media (max-width: 700px) {
+            html,
+            body {
+                height: 100%;
+                overflow: hidden;
+            }
+
+            #map {
+                height: 100dvh;
+                min-height: 100svh;
+            }
+
+            .controls {
+                top: auto;
+                left: 8px;
+                right: 8px;
+                bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+                width: auto;
+                max-height: min(52dvh, 430px);
+                padding: 10px;
+                border-radius: 16px;
+                overscroll-behavior: contain;
+            }
+
+            .section {
+                margin-bottom: 10px;
+                padding-bottom: 10px;
+            }
+
+            label {
+                font-size: 12px;
+            }
+
+            input[type="file"],
+            select,
+            input[type="text"],
+            button {
+                min-height: 44px;
+                font-size: 13px;
+            }
+
+            .modal-content {
+                width: calc(100% - 12px);
+                height: calc(100dvh - 12px);
+                max-height: calc(100dvh - 12px);
+                margin: 6px auto;
+            }
+
+            .leaflet-popup-content {
+                width: min(82vw, 340px) !important;
+            }
+
+            .graph-container {
+                width: min(78vw, 320px);
+            }
+        }
+
     </style>
     <style id="light-theme-override-malda">
         body { background: #f4f8fc !important; }
@@ -2234,6 +2291,5 @@
     </script>
 </body>
 </html>
-
 
 
