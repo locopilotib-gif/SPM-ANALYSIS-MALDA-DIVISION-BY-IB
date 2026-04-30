@@ -310,8 +310,9 @@
             <div id="signalStatus" style="font-size:11px; color:#bbb;">Waiting...</div>
         </div>
         <div class="section">
-            <label>2a. SNT Data Input</label>
-            <input type="file" id="sntUpload" multiple accept=".zip,.csv,.xls,.xlsx,.xlsm,.xlsb,.xltx,.xltm,.ods" />
+            <label>2a. Multiple Routes</label>
+            <div style="font-size:10px; color:#667085; margin-bottom:5px;">Select many ROUTE CSV files, ZIP/KMZ bundles, KML, GeoJSON, or spreadsheet route files.</div>
+            <input type="file" id="sntUpload" multiple accept=".zip,.kmz,.csv,.kml,.geojson,.json,.xls,.xlsx,.xlsm,.xlsb,.xltx,.xltm,.ods" />
             <div id="sntStatus" style="font-size:11px; color:#bbb;">Waiting...</div>
         </div>
 
@@ -326,10 +327,10 @@
             <input type="file" id="cdUpload" accept=".xlsx, .csv" />
             <div id="cdStatus" style="font-size:11px; color:#bbb;">Not Uploaded (Optional)</div>
         </div>
-        <div class="section">
+        <div class="section" style="display:none;">
             <label>2d. Upload FSD Route GPS Reference</label>
             <div style="font-size:10px; color:#667085; margin-bottom:5px;">Supports ROUTE CSV format: route name in first row, Lat/Lon as DDMM.MMMM.</div>
-            <input type="file" id="fsdInput" multiple accept=".zip,.csv,.xls,.xlsx,.xlsm,.xlsb,.xltx,.xltm,.ods" />
+            <input type="file" id="fsdInput" multiple accept=".zip,.kmz,.csv,.kml,.geojson,.json,.xls,.xlsx,.xlsm,.xlsb,.xltx,.xltm,.ods" />
             <div id="fsdStatus" style="font-size:11px; color:#bbb;">Not Uploaded (Optional)</div>
             <button class="btn-caution" onclick="clearFsdReference()">Clear FSD Route Overlay</button>
         </div>
@@ -1170,44 +1171,29 @@
         document.getElementById('sntUpload').addEventListener('change', async function(e) {
             const files = Array.from(e.target.files || []);
             if (files.length === 0) return;
-            document.getElementById('sntStatus').innerText = `Processing ${files.length} SNT file(s)...`;
+            document.getElementById('sntStatus').innerText = `Processing ${files.length} route file(s)...`;
             document.getElementById('sntStatus').style.color = '#4db8ff';
 
-            let mergedSnt = [];
             try {
+                const allRoutes = [];
                 for (const file of files) {
-                    const lower = file.name.toLowerCase();
-                    if (lower.endsWith('.zip')) {
-                        if (!window.JSZip) throw new Error('JSZip not loaded');
-                        const zip = await JSZip.loadAsync(file);
-                        const entries = Object.keys(zip.files).filter(k => !zip.files[k].dir);
-                        for (const entryName of entries) {
-                            const en = entryName.toLowerCase();
-                            if (en.endsWith('.csv') || en.endsWith('.xls') || en.endsWith('.xlsx') || en.endsWith('.xlsm') || en.endsWith('.xlsb') || en.endsWith('.xltx') || en.endsWith('.xltm') || en.endsWith('.ods')) {
-                                const ab = await zip.files[entryName].async('arraybuffer');
-                                const rows = readWorkbookRows(ab);
-                                mergedSnt = mergeSntData(mergedSnt, normalizeSntFromRows(rows, entryName));
-                            }
-                        }
-                    } else if (lower.endsWith('.csv') || lower.endsWith('.xls') || lower.endsWith('.xlsx') || lower.endsWith('.xlsm') || lower.endsWith('.xlsb') || lower.endsWith('.xltx') || lower.endsWith('.xltm') || lower.endsWith('.ods')) {
-                        const ab = await file.arrayBuffer();
-                        const rows = readWorkbookRows(ab);
-                        mergedSnt = mergeSntData(mergedSnt, normalizeSntFromRows(rows, file.name));
-                    }
+                    const routes = await parseFsdInputFile(file);
+                    routes.forEach(route => allRoutes.push(route));
                 }
 
-                globalSntData = mergeSntData([], mergedSnt);
-                if (globalSntData.length > 0) {
-                    const uniqueStations = new Set(globalSntData.map(r => r.station.toUpperCase())).size;
-                    document.getElementById('sntStatus').innerText = `Loaded ${globalSntData.length} SNT row(s) from ${uniqueStations} station(s).`;
+                if (allRoutes.length > 0) {
+                    fsdRouteFeatures = allRoutes;
+                    renderFsdRoutes();
+                    const pointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
+                    document.getElementById('sntStatus').innerText = `Loaded ${fsdRouteFeatures.length} route(s), ${pointCount} point(s).`;
                     document.getElementById('sntStatus').style.color = '#00ff88';
                 } else {
-                    document.getElementById('sntStatus').innerText = 'No valid SNT rows found in selected file(s).';
+                    document.getElementById('sntStatus').innerText = 'No valid route points found in selected file(s).';
                     document.getElementById('sntStatus').style.color = '#ff6666';
                 }
             } catch (err) {
-                console.error('SNT upload parse failed', err);
-                document.getElementById('sntStatus').innerText = 'SNT upload failed. Check ZIP/CSV format.';
+                console.error('Multiple routes upload parse failed', err);
+                document.getElementById('sntStatus').innerText = 'Multiple Routes upload failed. Check ZIP/CSV/KML/GeoJSON/spreadsheet format.';
                 document.getElementById('sntStatus').style.color = '#ff6666';
             }
         });
@@ -1308,7 +1294,7 @@
 
         async function parseFsdInputFile(file) {
             const name = file.name.toLowerCase();
-            if (name.endsWith('.zip')) {
+            if (name.endsWith('.zip') || name.endsWith('.kmz')) {
                 if (!window.JSZip) throw new Error('JSZip library not loaded');
                 const routes = [];
                 const zip = await JSZip.loadAsync(file);
@@ -2373,4 +2359,3 @@
     </script>
 </body>
 </html>
-
