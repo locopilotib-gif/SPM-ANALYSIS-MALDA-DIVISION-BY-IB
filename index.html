@@ -3,138 +3,340 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#101810" />
   <title>SPM Integrated Command Center</title>
   <style>
     :root {
-      --bg: #0f140f;
-      --panel: rgba(17, 24, 17, 0.95);
-      --line: rgba(255, 153, 51, 0.16);
-      --line-strong: rgba(255, 153, 51, 0.35);
-      --orange-soft: rgba(255, 153, 51, 0.13);
-      --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-      --radius: 18px;
+      color-scheme: dark;
+      --bg: #101810;
+      --panel: rgba(17, 24, 17, 0.96);
+      --panel-soft: rgba(255, 255, 255, 0.055);
+      --line: rgba(255, 153, 51, 0.18);
+      --line-strong: rgba(255, 153, 51, 0.42);
+      --green: #2fe08c;
+      --orange: #ffb86b;
+      --text: #f0f7ef;
+      --muted: rgba(240, 247, 239, 0.68);
+      --shadow: 0 16px 36px rgba(0, 0, 0, 0.34);
+      --radius: 14px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
-    * { box-sizing: border-box; }
-    html, body { min-height: 100%; }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
     body {
+      width: 100%;
+      height: 100%;
       margin: 0;
-      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+
+    body {
+      min-width: 320px;
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(0, 255, 136, 0.10), transparent 28%),
-        radial-gradient(circle at top right, rgba(255, 153, 51, 0.14), transparent 34%),
-        linear-gradient(180deg, #111811, #0f140f 46%, #0c120d);
+        linear-gradient(135deg, rgba(47, 224, 140, 0.12), transparent 32%),
+        linear-gradient(225deg, rgba(255, 184, 107, 0.16), transparent 34%),
+        linear-gradient(180deg, #142014, #0f150f 58%, #0b100c);
+      color: var(--text);
       overflow: hidden;
     }
-    .gridlines {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      opacity: 0.07;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
-      background-size: 32px 32px;
-    }
+
     .app {
       position: relative;
-      z-index: 1;
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: auto minmax(0, 1fr);
       gap: 10px;
-      min-height: 100vh;
-      padding: 10px;
+      height: 100dvh;
+      min-height: 100svh;
+      padding: calc(10px + var(--safe-top)) 10px 10px;
     }
-    .panel {
+
+    .topbar,
+    .viewer,
+    .modebar {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(14px);
     }
-    .modebar {
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+    }
+
+    .brand {
+      min-width: 0;
+    }
+
+    .brand-title {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.15;
+      letter-spacing: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .brand-subtitle {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
+    .actions {
       display: flex;
-      flex-wrap: wrap;
+      align-items: center;
       gap: 8px;
-      padding: 10px;
     }
-    button {
+
+    button,
+    .icon-button {
       appearance: none;
+      min-height: 44px;
       border: 1px solid transparent;
-      border-radius: 14px;
-      padding: 12px 14px;
+      border-radius: 12px;
       font: inherit;
       font-weight: 800;
+      color: var(--text);
+      background: var(--panel-soft);
       cursor: pointer;
-      min-height: 48px;
-      color: rgba(238, 247, 238, 0.82);
-      background: rgba(255,255,255,0.05);
+      touch-action: manipulation;
     }
-    .modebar button.active {
-      border-color: var(--line-strong);
-      background: var(--orange-soft);
-      color: #ffd8af;
+
+    .icon-button {
+      display: inline-grid;
+      width: 44px;
+      place-items: center;
+      text-decoration: none;
     }
+
+    .icon-button:focus-visible,
+    .modebar button:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 2px;
+    }
+
     .viewer {
       position: relative;
       min-height: 0;
       overflow: hidden;
-      background:
-        radial-gradient(circle at 20% 0%, rgba(255,153,51,0.08), transparent 24%),
-        radial-gradient(circle at 80% 10%, rgba(0,255,136,0.05), transparent 26%);
+      background: #091009;
     }
+
     iframe {
+      display: block;
       width: 100%;
       height: 100%;
-      min-height: calc(100vh - 76px);
+      min-height: 0;
       border: 0;
       background: #091009;
     }
-    @media (max-width: 480px) {
+
+    .loader {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      background: rgba(9, 16, 9, 0.78);
+      color: var(--muted);
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 160ms ease;
+    }
+
+    .viewer.is-loading .loader {
+      opacity: 1;
+    }
+
+    .modebar {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      padding: 8px;
+    }
+
+    .modebar button {
+      display: grid;
+      gap: 2px;
+      justify-items: center;
+      min-width: 0;
+      padding: 10px 8px;
+      line-height: 1.1;
+    }
+
+    .modebar button span {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .modebar button small {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .modebar button.active {
+      border-color: var(--line-strong);
+      background: rgba(255, 184, 107, 0.15);
+      color: #ffe1bf;
+    }
+
+    .modebar button.active small {
+      color: var(--orange);
+    }
+
+    @media (min-width: 700px) {
       .app {
-        padding: 8px;
-        gap: 8px;
+        grid-template-rows: auto auto minmax(0, 1fr);
+        padding: calc(12px + var(--safe-top)) 12px 12px;
       }
+
+      .topbar {
+        padding: 12px 14px;
+      }
+
+      .brand-title {
+        font-size: 18px;
+      }
+
+      .brand-subtitle {
+        font-size: 12px;
+      }
+
       .modebar {
-        padding: 8px;
+        order: 0;
+        grid-template-columns: repeat(2, minmax(180px, 260px));
+        justify-content: start;
       }
-      button {
-        flex: 1 1 100%;
-        min-height: 52px;
+    }
+
+    @media (max-width: 699px) {
+      .app {
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        gap: 8px;
+        padding: calc(8px + var(--safe-top)) 8px calc(8px + var(--safe-bottom));
       }
-      iframe {
-        min-height: calc(100vh - 124px);
+
+      .topbar {
+        border-radius: 12px;
+      }
+
+      .viewer {
+        border-radius: 10px;
+      }
+
+      .modebar {
+        position: sticky;
+        bottom: var(--safe-bottom);
+        z-index: 5;
+        border-radius: 16px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .brand-title {
+        font-size: 13px;
+      }
+
+      .brand-subtitle {
+        display: none;
+      }
+
+      .modebar button span {
+        font-size: 12px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="gridlines" aria-hidden="true"></div>
   <div class="app">
-    <section class="panel modebar">
-      <button id="singleBtn" class="active" type="button">OPTION A: SINGLE ANALYSIS</button>
-      <button id="bulkBtn" type="button">OPTION B: BULK ANALYSIS</button>
-    </section>
-    <main class="panel viewer">
+    <header class="topbar" aria-label="SPM Command Center">
+      <div class="brand">
+        <h1 class="brand-title">SPM Analysis - Malda Division</h1>
+        <p class="brand-subtitle">Integrated command center by Iman Biswas</p>
+      </div>
+      <div class="actions">
+        <button class="icon-button" id="refreshBtn" type="button" aria-label="Reload analysis" title="Reload">&#8635;</button>
+        <a class="icon-button" id="openBtn" href="SPM_Malda_Division.html" target="_blank" rel="noopener" aria-label="Open current analysis in full screen" title="Open full screen">&#8599;</a>
+      </div>
+    </header>
+
+    <main class="viewer is-loading" id="viewer">
       <iframe id="workspaceFrame" src="about:blank" title="SPM Analysis Workspace"></iframe>
+      <div class="loader" id="loader">Loading analysis...</div>
     </main>
+
+    <nav class="modebar" aria-label="Analysis mode">
+      <button id="singleBtn" class="active" type="button" aria-pressed="true">
+        <span>Single Analysis</span>
+        <small>Option A</small>
+      </button>
+      <button id="bulkBtn" type="button" aria-pressed="false">
+        <span>Bulk Analysis</span>
+        <small>Option B</small>
+      </button>
+    </nav>
   </div>
+
   <script>
     const frame = document.getElementById('workspaceFrame');
+    const viewer = document.getElementById('viewer');
     const singleBtn = document.getElementById('singleBtn');
     const bulkBtn = document.getElementById('bulkBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const openBtn = document.getElementById('openBtn');
+
     const docs = {
       single: 'SPM_Malda_Division.html',
       bulk: 'SPM_FINAL_SINGLE_FILE.html'
     };
 
+    let activeMode = 'single';
+
+    function setLoading(isLoading) {
+      viewer.classList.toggle('is-loading', isLoading);
+    }
+
     function openMode(mode) {
+      activeMode = mode;
+      const src = docs[mode];
+
       singleBtn.classList.toggle('active', mode === 'single');
       bulkBtn.classList.toggle('active', mode === 'bulk');
-      frame.src = docs[mode];
+      singleBtn.setAttribute('aria-pressed', String(mode === 'single'));
+      bulkBtn.setAttribute('aria-pressed', String(mode === 'bulk'));
+      openBtn.href = src;
+
+      setLoading(true);
+      if (frame.getAttribute('src') === src) {
+        frame.contentWindow.location.reload();
+      } else {
+        frame.src = src;
+      }
     }
 
     singleBtn.addEventListener('click', () => openMode('single'));
     bulkBtn.addEventListener('click', () => openMode('bulk'));
+    refreshBtn.addEventListener('click', () => openMode(activeMode));
+    frame.addEventListener('load', () => setLoading(false));
+
     openMode('single');
   </script>
 </body>
