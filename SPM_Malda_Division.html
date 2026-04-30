@@ -704,6 +704,7 @@
         var globalOverspeedList = [];
         var globalMPSUsed = 0;
         const SIGNAL_MATCH_RADIUS_M = 150;
+        const ROUTE_SIGNAL_MATCH_RADIUS_M = 20000;
         
         // --- DEFINING THE SIGNAL ICON (SVG DATA URI) ---
         const signalSvgData = "data:image/svg+xml;base64," + btoa(`
@@ -919,12 +920,12 @@
         }
 
         function getSignalNameForStop(stopIndex) {
-            if(!matchedSignalsGlobal || matchedSignalsGlobal.length === 0) return "No Signal Data";
+            if(!matchedSignalsGlobal || matchedSignalsGlobal.length === 0) return getNearestRouteSignalName(stopIndex) || "No Signal Data";
             let stopLatLng = currentPath[stopIndex];
             let foundSignalName = "No Signal";
             let nearbySignals = matchedSignalsGlobal.filter(s => {
                 let sLoc = L.latLng(s.signal.lat, s.signal.lng);
-                const radius = s.signal.sourceType === 'route' ? 1200 : 500;
+                const radius = s.signal.sourceType === 'route' ? ROUTE_SIGNAL_MATCH_RADIUS_M : 500;
                 return stopLatLng.distanceTo(sLoc) <= radius;
             });
             if (nearbySignals.length > 0) {
@@ -935,7 +936,25 @@
                     if (signalBehind) { foundSignalName = signalBehind.signal.name; }
                 }
             }
-            return foundSignalName;
+            return foundSignalName === "No Signal" ? (getNearestRouteSignalName(stopIndex) || foundSignalName) : foundSignalName;
+        }
+
+        function getNearestRouteSignalName(stopIndex) {
+            if (!currentPath || !currentPath[stopIndex] || !fsdRouteFeatures || fsdRouteFeatures.length === 0) return null;
+            const stopLatLng = currentPath[stopIndex];
+            let best = null;
+            fsdRouteFeatures.forEach(route => {
+                const names = route.pointNames || [];
+                (route.coords || []).forEach((point, idx) => {
+                    const name = (names[idx] || '').toString().trim();
+                    if (!name) return;
+                    const distance = stopLatLng.distanceTo(point);
+                    if (!best || distance < best.distance) {
+                        best = { name, distance };
+                    }
+                });
+            });
+            return best && best.distance <= ROUTE_SIGNAL_MATCH_RADIUS_M ? best.name : null;
         }
 
         // --- SMART BULK UPLOAD LOGIC ---
@@ -1415,7 +1434,7 @@
                         lat: point.lat,
                         lng: point.lng,
                         sourceType: 'route',
-                        matchRadius: 1200
+                        matchRadius: ROUTE_SIGNAL_MATCH_RADIUS_M
                     });
                 });
             });
@@ -2498,8 +2517,9 @@
                 const matchRadius = signal.matchRadius || SIGNAL_MATCH_RADIUS_M;
                 if (closestDist <= matchRadius && closestIndex !== -1) { matchedSignalsGlobal.push({ signal: signal, pathIndex: closestIndex, distance: closestDist, crossingTime: trainPath[closestIndex].time, crossingSpeed: trainPath[closestIndex].speed }); }
             });
-            document.getElementById('signalStatus').innerText = matchedSignalsGlobal.length > 0 ? `Matched ${matchedSignalsGlobal.length} signal reference(s).` : `No signal matched. Try loading correct Multiple Routes ZIP/CSV.`;
-            document.getElementById('signalStatus').style.color = matchedSignalsGlobal.length > 0 ? '#00ff88' : '#ff6666';
+            const hasRouteFallback = fsdRouteFeatures && fsdRouteFeatures.some(route => (route.pointNames || []).some(name => (name || '').toString().trim()));
+            document.getElementById('signalStatus').innerText = matchedSignalsGlobal.length > 0 ? `Matched ${matchedSignalsGlobal.length} signal reference(s).` : (hasRouteFallback ? `Using nearest Multiple Routes CSV point names for signal data.` : `No signal matched. Try loading correct Multiple Routes ZIP/CSV.`);
+            document.getElementById('signalStatus').style.color = matchedSignalsGlobal.length > 0 || hasRouteFallback ? '#00ff88' : '#ff6666';
             matchedSignalsGlobal.sort((a, b) => a.pathIndex - b.pathIndex);
             matchedSignalsGlobal.forEach(item => { 
                 let sMarker = L.marker([item.signal.lat, item.signal.lng], {icon: signalIcon}).addTo(map);
