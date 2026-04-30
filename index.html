@@ -102,6 +102,7 @@
     }
 
     button,
+    .mode-link,
     .icon-button {
       appearance: none;
       min-height: 44px;
@@ -123,7 +124,7 @@
     }
 
     .icon-button:focus-visible,
-    .modebar button:focus-visible {
+    .mode-link:focus-visible {
       outline: 2px solid var(--green);
       outline-offset: 2px;
     }
@@ -170,17 +171,19 @@
       order: -1;
     }
 
-    .modebar button {
+    .mode-link {
       display: grid;
       gap: 1px;
       justify-items: center;
+      align-content: center;
       min-width: 0;
       min-height: 40px;
       padding: 7px 8px;
       line-height: 1.1;
+      text-decoration: none;
     }
 
-    .modebar button span {
+    .mode-link span {
       max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -188,19 +191,19 @@
       font-size: 12px;
     }
 
-    .modebar button small {
+    .mode-link small {
       color: var(--muted);
       font-size: 9px;
       font-weight: 700;
     }
 
-    .modebar button.active {
+    .mode-link.active {
       border-color: var(--line-strong);
       background: rgba(255, 184, 107, 0.15);
       color: #ffe1bf;
     }
 
-    .modebar button.active small {
+    .mode-link.active small {
       color: var(--orange);
     }
 
@@ -267,7 +270,7 @@
         display: none;
       }
 
-      .modebar button span {
+      .mode-link span {
         font-size: 12px;
       }
     }
@@ -276,14 +279,14 @@
 <body>
   <div class="app">
     <nav class="modebar" aria-label="Analysis mode">
-      <button id="singleBtn" class="active" type="button" aria-pressed="true">
+      <a id="singleBtn" class="mode-link active" href="SPM_Malda_Division.html" aria-current="page">
         <span>Single Analysis</span>
         <small>Option A</small>
-      </button>
-      <button id="bulkBtn" type="button" aria-pressed="false">
+      </a>
+      <a id="bulkBtn" class="mode-link" href="SPM_FINAL_SINGLE_FILE.html">
         <span>Bulk Analysis</span>
         <small>Option B</small>
-      </button>
+      </a>
     </nav>
 
     <header class="topbar" aria-label="SPM Command Center">
@@ -328,8 +331,8 @@
 
       singleBtn.classList.toggle('active', mode === 'single');
       bulkBtn.classList.toggle('active', mode === 'bulk');
-      singleBtn.setAttribute('aria-pressed', String(mode === 'single'));
-      bulkBtn.setAttribute('aria-pressed', String(mode === 'bulk'));
+      singleBtn.toggleAttribute('aria-current', mode === 'single');
+      bulkBtn.toggleAttribute('aria-current', mode === 'bulk');
       openBtn.href = src;
 
       setLoading(true);
@@ -340,8 +343,14 @@
       }
     }
 
-    singleBtn.addEventListener('click', () => openMode('single'));
-    bulkBtn.addEventListener('click', () => openMode('bulk'));
+    singleBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      window.location.href = docs.single;
+    });
+    bulkBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      window.location.href = docs.bulk;
+    });
     refreshBtn.addEventListener('click', () => openMode(activeMode));
     frame.addEventListener('load', () => setLoading(false));
 
