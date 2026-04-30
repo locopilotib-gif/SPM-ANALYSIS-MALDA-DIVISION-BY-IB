@@ -141,6 +141,26 @@
         .legend {
             display: none !important;
         }
+        .controls {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(10, 95, 138, 0.45) transparent;
+        }
+        .controls::-webkit-scrollbar { width: 6px; }
+        .controls::-webkit-scrollbar-thumb { background: rgba(10, 95, 138, 0.38); border-radius: 6px; }
+        .controls input[type="file"] {
+            min-height: 38px;
+            line-height: 1.4;
+        }
+        @media (min-width: 701px) {
+            .controls {
+                width: min(360px, calc(100vw - 40px));
+                max-height: calc(100dvh - 40px);
+            }
+            .section {
+                margin-bottom: 12px;
+                padding-bottom: 12px;
+            }
+        }
 
         @media (max-width: 480px) {
             body { overflow: auto; }
@@ -197,10 +217,11 @@
                 right: 8px;
                 bottom: calc(8px + env(safe-area-inset-bottom, 0px));
                 width: auto;
-                max-height: min(52dvh, 430px);
+                max-height: min(50dvh, 430px);
                 padding: 10px;
                 border-radius: 16px;
                 overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
             }
 
             .section {
@@ -218,6 +239,7 @@
             button {
                 min-height: 44px;
                 font-size: 13px;
+                border-radius: 8px;
             }
 
             .modal-content {
@@ -676,7 +698,9 @@
         var reportSnapshots = [];
         var overspeedLayerGroup = L.layerGroup(); 
         var fsdRouteLayerGroup = L.layerGroup();
+        var fsdAllRouteFeatures = [];
         var fsdRouteFeatures = [];
+        var fsdRouteMatchSummary = '';
         var globalOverspeedList = [];
         var globalMPSUsed = 0;
         const SIGNAL_MATCH_RADIUS_M = 150;
@@ -1058,11 +1082,15 @@
             (incoming || []).forEach(s => {
                 const key = `${(s.name || '').toString().trim().toLowerCase()}|${Number(s.lat).toFixed(6)}|${Number(s.lng).toFixed(6)}`;
                 if (!seen.has(key)) {
-                    out.push({ name: s.name, lat: parseFloat(s.lat), lng: parseFloat(s.lng) });
+                    out.push({ name: s.name, lat: parseFloat(s.lat), lng: parseFloat(s.lng), sourceType: s.sourceType || '' });
                     seen.add(key);
                 }
             });
             return out;
+        }
+
+        function removeRouteSignals(signals) {
+            return (signals || []).filter(signal => signal.sourceType !== 'route');
         }
 
         function readWorkbookRows(arrayBuffer) {
@@ -1176,18 +1204,23 @@
 
             try {
                 const allRoutes = [];
+                let skipped7z = 0;
                 for (const file of files) {
+                    if (isSevenZipFile(file.name)) skipped7z++;
                     const routes = await parseFsdInputFile(file);
                     routes.forEach(route => allRoutes.push(route));
                 }
 
                 if (allRoutes.length > 0) {
-                    fsdRouteFeatures = allRoutes;
-                    renderFsdRoutes();
+                    fsdAllRouteFeatures = allRoutes;
+                    updateFsdRoutesForCurrentPath();
                     const routeSignals = extractSignalsFromRoutes(fsdRouteFeatures);
+                    loadedSignals = removeRouteSignals(loadedSignals);
                     loadedSignals = mergeSignals(loadedSignals, routeSignals);
-                    const pointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
-                    document.getElementById('sntStatus').innerText = `Loaded ${fsdRouteFeatures.length} route(s), ${pointCount} point(s), ${routeSignals.length} signal reference(s).`;
+                    const totalPointCount = fsdAllRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
+                    const visiblePointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
+                    const skipText = skipped7z ? ` ${skipped7z} 7Z file(s) skipped; extract them first.` : '';
+                    document.getElementById('sntStatus').innerText = `Processed ${fsdAllRouteFeatures.length} route(s), ${totalPointCount} point(s). Showing ${fsdRouteFeatures.length} suitable route(s), ${visiblePointCount} point(s), ${routeSignals.length} signal reference(s).${skipText}`;
                     document.getElementById('signalStatus').innerText = `Route signals available: ${loadedSignals.length}.`;
                     document.getElementById('signalStatus').style.color = '#00ff88';
                     document.getElementById('sntStatus').style.color = '#00ff88';
@@ -1195,7 +1228,7 @@
                         filterAndMatchSignals(loadedSignals, currentPath);
                     }
                 } else {
-                    document.getElementById('sntStatus').innerText = 'No valid route points found in selected file(s).';
+                    document.getElementById('sntStatus').innerText = skipped7z ? '7Z archive selected. Please extract it to ZIP/KMZ or select ROUTE CSV files, then upload again.' : 'No valid route points found in selected file(s).';
                     document.getElementById('sntStatus').style.color = '#ff6666';
                 }
             } catch (err) {
@@ -1276,12 +1309,14 @@
                     routes.forEach(r => allRoutes.push(r));
                 }
                 if (allRoutes.length > 0) {
-                    fsdRouteFeatures = allRoutes;
-                    renderFsdRoutes();
+                    fsdAllRouteFeatures = allRoutes;
+                    updateFsdRoutesForCurrentPath();
                     const routeSignals = extractSignalsFromRoutes(fsdRouteFeatures);
+                    loadedSignals = removeRouteSignals(loadedSignals);
                     loadedSignals = mergeSignals(loadedSignals, routeSignals);
-                    const pointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
-                    document.getElementById('fsdStatus').innerText = `Loaded ${fsdRouteFeatures.length} FSD route(s), ${pointCount} point(s), ${routeSignals.length} signal reference(s).`;
+                    const totalPointCount = fsdAllRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
+                    const visiblePointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
+                    document.getElementById('fsdStatus').innerText = `Processed ${fsdAllRouteFeatures.length} FSD route(s), ${totalPointCount} point(s). Showing ${fsdRouteFeatures.length} suitable route(s), ${visiblePointCount} point(s), ${routeSignals.length} signal reference(s).`;
                     document.getElementById('signalStatus').innerText = `Route signals available: ${loadedSignals.length}.`;
                     document.getElementById('signalStatus').style.color = '#00ff88';
                     document.getElementById('fsdStatus').style.color = '#00ff88';
@@ -1300,16 +1335,21 @@
         });
 
         function clearFsdReference() {
+            fsdAllRouteFeatures = [];
             fsdRouteFeatures = [];
+            fsdRouteMatchSummary = '';
             fsdRouteLayerGroup.clearLayers();
             document.getElementById('fsdStatus').innerText = "FSD references cleared.";
             document.getElementById('fsdStatus').style.color = '#bbb';
+            document.getElementById('sntStatus').innerText = "Multiple Routes cleared.";
+            document.getElementById('sntStatus').style.color = '#bbb';
         }
 
         async function parseFsdInputFile(file) {
             const name = file.name.toLowerCase();
-            if (name.endsWith('.7z') || name.endsWith('.7zip')) {
-                throw new Error('7Z archives are listed for selection, but browser parsing needs extraction to ZIP/KMZ or route CSV first.');
+            if (isSevenZipFile(name)) {
+                console.warn('7Z archive skipped. Extract to ZIP/KMZ or select route CSV files directly:', file.name);
+                return [];
             }
             if (name.endsWith('.zip') || name.endsWith('.kmz')) {
                 if (!window.JSZip) throw new Error('JSZip library not loaded');
@@ -1339,14 +1379,20 @@
             return [];
         }
 
+        function isSevenZipFile(name) {
+            const lower = (name || '').toLowerCase();
+            return lower.endsWith('.7z') || lower.endsWith('.7zip');
+        }
+
         function renderFsdRoutes() {
             fsdRouteLayerGroup.clearLayers();
             if (!fsdRouteFeatures || fsdRouteFeatures.length === 0) return;
             fsdRouteLayerGroup.addTo(map);
             fsdRouteFeatures.forEach((route, i) => {
                 const color = getRouteColor(i);
-                L.polyline(route.coords, { color, weight: 3, opacity: 0.78, dashArray: '8 4' })
-                    .bindPopup(`<b>FSD Route</b><br>${route.name}<br>Points: ${route.coords.length}${route.format ? `<br>Format: ${route.format}` : ''}`)
+                const scoreText = route.matchScore ? `<br>Match: ${Math.round(route.matchScore.matchRatio * 100)}% / Avg ${Math.round(route.matchScore.avgDistance)} m` : '';
+                L.polyline(route.coords, { color, weight: route.matchScore ? 5 : 3, opacity: route.matchScore ? 0.92 : 0.58, dashArray: route.matchScore ? null : '8 4' })
+                    .bindPopup(`<b>FSD Route</b><br>${route.name}<br>Points: ${route.coords.length}${route.format ? `<br>Format: ${route.format}` : ''}${scoreText}`)
                     .addTo(fsdRouteLayerGroup);
             });
         }
@@ -1366,11 +1412,96 @@
                     signals.push({
                         name: rawName,
                         lat: point.lat,
-                        lng: point.lng
+                        lng: point.lng,
+                        sourceType: 'route'
                     });
                 });
             });
             return signals;
+        }
+
+        function updateFsdRoutesForCurrentPath() {
+            const allRoutes = Array.isArray(fsdAllRouteFeatures) && fsdAllRouteFeatures.length ? fsdAllRouteFeatures : fsdRouteFeatures;
+            if (!allRoutes || allRoutes.length === 0) {
+                fsdRouteFeatures = [];
+                fsdRouteMatchSummary = '';
+                renderFsdRoutes();
+                return;
+            }
+            if (!currentPath || currentPath.length < 2) {
+                fsdRouteFeatures = allRoutes;
+                fsdRouteMatchSummary = 'No RTIS route selected yet; showing all uploaded route references.';
+                renderFsdRoutes();
+                return;
+            }
+
+            const ranked = rankRoutesForTrainPath(allRoutes, currentPath);
+            let selected = ranked.filter(item => item.matchRatio >= 0.35 && item.avgDistance <= 1800).slice(0, 4);
+            if (selected.length === 0) selected = ranked.filter(item => item.avgDistance <= 3500).slice(0, 3);
+            if (selected.length === 0) selected = ranked.slice(0, Math.min(2, ranked.length));
+
+            fsdRouteFeatures = selected.map(item => ({
+                ...item.route,
+                matchScore: {
+                    matchRatio: item.matchRatio,
+                    avgDistance: item.avgDistance,
+                    startDistance: item.startDistance,
+                    endDistance: item.endDistance
+                }
+            }));
+            fsdRouteMatchSummary = selected.map(item => `${item.route.name}: ${Math.round(item.matchRatio * 100)}%, ${Math.round(item.avgDistance)}m avg`).join(' | ');
+            renderFsdRoutes();
+        }
+
+        function rankRoutesForTrainPath(routes, trainPath) {
+            const samples = samplePoints(trainPath, 48);
+            return (routes || []).map(route => {
+                const routeCoords = route.coords || [];
+                if (routeCoords.length < 2 || samples.length === 0) {
+                    return { route, matchRatio: 0, avgDistance: Infinity, startDistance: Infinity, endDistance: Infinity };
+                }
+                let total = 0;
+                let matched = 0;
+                samples.forEach(point => {
+                    const d = nearestDistanceToRoute(point, routeCoords);
+                    total += d;
+                    if (d <= 1000) matched++;
+                });
+                const startDistance = nearestDistanceToRoute(trainPath[0], routeCoords);
+                const endDistance = nearestDistanceToRoute(trainPath[trainPath.length - 1], routeCoords);
+                const avgDistance = total / samples.length;
+                const endBonus = (startDistance <= 2500 ? 0.08 : 0) + (endDistance <= 2500 ? 0.08 : 0);
+                return {
+                    route,
+                    matchRatio: Math.min(1, (matched / samples.length) + endBonus),
+                    avgDistance,
+                    startDistance,
+                    endDistance
+                };
+            }).sort((a, b) => {
+                if (b.matchRatio !== a.matchRatio) return b.matchRatio - a.matchRatio;
+                return a.avgDistance - b.avgDistance;
+            });
+        }
+
+        function samplePoints(points, maxSamples) {
+            if (!points || points.length <= maxSamples) return points || [];
+            const out = [];
+            const step = (points.length - 1) / (maxSamples - 1);
+            for (let i = 0; i < maxSamples; i++) {
+                out.push(points[Math.round(i * step)]);
+            }
+            return out;
+        }
+
+        function nearestDistanceToRoute(point, routeCoords) {
+            let min = Infinity;
+            const step = Math.max(1, Math.floor(routeCoords.length / 900));
+            for (let i = 0; i < routeCoords.length; i += step) {
+                const d = point.distanceTo(routeCoords[i]);
+                if (d < min) min = d;
+            }
+            return min;
         }
 
         function parseFsdTextByType(text, fileName) {
@@ -1641,6 +1772,14 @@
             });
             currentPath = path;
             if (path.length > 0) {
+                updateFsdRoutesForCurrentPath();
+                if (fsdRouteFeatures.length > 0) {
+                    const routeSignals = extractSignalsFromRoutes(fsdRouteFeatures);
+                    loadedSignals = removeRouteSignals(loadedSignals);
+                    loadedSignals = mergeSignals(loadedSignals, routeSignals);
+                    document.getElementById('sntStatus').innerText = `Suitable routes selected: ${fsdRouteFeatures.length}. ${fsdRouteMatchSummary || ''}`;
+                    document.getElementById('sntStatus').style.color = '#00ff88';
+                }
                 var polyline = L.polyline(path, { color: '#ff3333', weight: 4, opacity: 0.6 }).addTo(map);
                 map.fitBounds(polyline.getBounds());
                 L.marker(path[0], {icon: startIcon}).addTo(map).bindPopup("Start");
