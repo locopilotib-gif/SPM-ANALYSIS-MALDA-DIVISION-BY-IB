@@ -924,7 +924,8 @@
             let foundSignalName = "No Signal";
             let nearbySignals = matchedSignalsGlobal.filter(s => {
                 let sLoc = L.latLng(s.signal.lat, s.signal.lng);
-                return stopLatLng.distanceTo(sLoc) <= 500;
+                const radius = s.signal.sourceType === 'route' ? 1200 : 500;
+                return stopLatLng.distanceTo(sLoc) <= radius;
             });
             if (nearbySignals.length > 0) {
                 let signalAhead = nearbySignals.find(s => s.pathIndex >= stopIndex);
@@ -1082,7 +1083,7 @@
             (incoming || []).forEach(s => {
                 const key = `${(s.name || '').toString().trim().toLowerCase()}|${Number(s.lat).toFixed(6)}|${Number(s.lng).toFixed(6)}`;
                 if (!seen.has(key)) {
-                    out.push({ name: s.name, lat: parseFloat(s.lat), lng: parseFloat(s.lng), sourceType: s.sourceType || '' });
+                    out.push({ name: s.name, lat: parseFloat(s.lat), lng: parseFloat(s.lng), sourceType: s.sourceType || '', matchRadius: s.matchRadius || SIGNAL_MATCH_RADIUS_M });
                     seen.add(key);
                 }
             });
@@ -1413,7 +1414,8 @@
                         name: rawName,
                         lat: point.lat,
                         lng: point.lng,
-                        sourceType: 'route'
+                        sourceType: 'route',
+                        matchRadius: 1200
                     });
                 });
             });
@@ -2493,8 +2495,11 @@
             signals.forEach(signal => {
                 let sigLatLng = L.latLng(signal.lat, signal.lng); let closestDist = Infinity; let closestIndex = -1;
                 for (let i = 0; i < trainPath.length; i++) { let d = sigLatLng.distanceTo(trainPath[i]); if (d < closestDist) { closestDist = d; closestIndex = i; } }
-                if (closestDist <= SIGNAL_MATCH_RADIUS_M && closestIndex !== -1) { matchedSignalsGlobal.push({ signal: signal, pathIndex: closestIndex, distance: closestDist, crossingTime: trainPath[closestIndex].time, crossingSpeed: trainPath[closestIndex].speed }); }
+                const matchRadius = signal.matchRadius || SIGNAL_MATCH_RADIUS_M;
+                if (closestDist <= matchRadius && closestIndex !== -1) { matchedSignalsGlobal.push({ signal: signal, pathIndex: closestIndex, distance: closestDist, crossingTime: trainPath[closestIndex].time, crossingSpeed: trainPath[closestIndex].speed }); }
             });
+            document.getElementById('signalStatus').innerText = matchedSignalsGlobal.length > 0 ? `Matched ${matchedSignalsGlobal.length} signal reference(s).` : `No signal matched. Try loading correct Multiple Routes ZIP/CSV.`;
+            document.getElementById('signalStatus').style.color = matchedSignalsGlobal.length > 0 ? '#00ff88' : '#ff6666';
             matchedSignalsGlobal.sort((a, b) => a.pathIndex - b.pathIndex);
             matchedSignalsGlobal.forEach(item => { 
                 let sMarker = L.marker([item.signal.lat, item.signal.lng], {icon: signalIcon}).addTo(map);

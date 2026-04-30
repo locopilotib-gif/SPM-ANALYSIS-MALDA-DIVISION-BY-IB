@@ -49,11 +49,11 @@
     .app {
       position: relative;
       display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr);
-      gap: 10px;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 8px;
       height: 100dvh;
       min-height: 100svh;
-      padding: calc(10px + var(--safe-top)) 10px 10px;
+      padding: calc(8px + var(--safe-top)) 8px 8px;
     }
 
     .topbar,
@@ -71,7 +71,7 @@
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       gap: 10px;
-      padding: 10px 12px;
+      padding: 8px 10px;
     }
 
     .brand {
@@ -165,17 +165,18 @@
     .modebar {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-      padding: 8px;
+      gap: 6px;
+      padding: 6px;
       order: -1;
     }
 
     .modebar button {
       display: grid;
-      gap: 2px;
+      gap: 1px;
       justify-items: center;
       min-width: 0;
-      padding: 10px 8px;
+      min-height: 40px;
+      padding: 7px 8px;
       line-height: 1.1;
     }
 
@@ -184,12 +185,12 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 13px;
+      font-size: 12px;
     }
 
     .modebar button small {
       color: var(--muted);
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 700;
     }
 
@@ -205,16 +206,19 @@
 
     @media (min-width: 700px) {
       .app {
-        grid-template-rows: auto auto minmax(0, 1fr);
-        padding: calc(12px + var(--safe-top)) 12px 12px;
+        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+        padding: calc(8px + var(--safe-top)) 8px 8px;
       }
 
       .topbar {
-        padding: 12px 14px;
+        grid-column: 2;
+        grid-row: 1;
+        padding: 8px 10px;
       }
 
       .brand-title {
-        font-size: 18px;
+        font-size: 15px;
       }
 
       .brand-subtitle {
@@ -222,8 +226,14 @@
       }
 
       .modebar {
-        grid-template-columns: repeat(2, minmax(180px, 260px));
-        justify-content: center;
+        grid-column: 1;
+        grid-row: 1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .viewer {
+        grid-column: 1 / -1;
+        grid-row: 2;
       }
     }
 
