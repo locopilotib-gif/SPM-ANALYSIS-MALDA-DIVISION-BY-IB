@@ -49,7 +49,7 @@
     .app {
       position: relative;
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: auto auto minmax(0, 1fr);
       gap: 10px;
       height: 100dvh;
       min-height: 100svh;
@@ -167,6 +167,7 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
       padding: 8px;
+      order: -1;
     }
 
     .modebar button {
@@ -221,15 +222,14 @@
       }
 
       .modebar {
-        order: 0;
         grid-template-columns: repeat(2, minmax(180px, 260px));
-        justify-content: start;
+        justify-content: center;
       }
     }
 
     @media (max-width: 699px) {
       .app {
-        grid-template-rows: auto minmax(0, 1fr) auto;
+        grid-template-rows: auto auto minmax(0, 1fr);
         gap: 8px;
         padding: calc(8px + var(--safe-top)) 8px calc(8px + var(--safe-bottom));
       }
@@ -243,10 +243,8 @@
       }
 
       .modebar {
-        position: sticky;
-        bottom: var(--safe-bottom);
         z-index: 5;
-        border-radius: 16px;
+        border-radius: 14px;
       }
     }
 
@@ -267,6 +265,17 @@
 </head>
 <body>
   <div class="app">
+    <nav class="modebar" aria-label="Analysis mode">
+      <button id="singleBtn" class="active" type="button" aria-pressed="true">
+        <span>Single Analysis</span>
+        <small>Option A</small>
+      </button>
+      <button id="bulkBtn" type="button" aria-pressed="false">
+        <span>Bulk Analysis</span>
+        <small>Option B</small>
+      </button>
+    </nav>
+
     <header class="topbar" aria-label="SPM Command Center">
       <div class="brand">
         <h1 class="brand-title">SPM Analysis - Malda Division</h1>
@@ -282,17 +291,6 @@
       <iframe id="workspaceFrame" src="about:blank" title="SPM Analysis Workspace"></iframe>
       <div class="loader" id="loader">Loading analysis...</div>
     </main>
-
-    <nav class="modebar" aria-label="Analysis mode">
-      <button id="singleBtn" class="active" type="button" aria-pressed="true">
-        <span>Single Analysis</span>
-        <small>Option A</small>
-      </button>
-      <button id="bulkBtn" type="button" aria-pressed="false">
-        <span>Bulk Analysis</span>
-        <small>Option B</small>
-      </button>
-    </nav>
   </div>
 
   <script>
