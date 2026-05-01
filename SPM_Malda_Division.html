@@ -920,7 +920,7 @@
         }
 
         function getSignalNameForStop(stopIndex) {
-            if(!matchedSignalsGlobal || matchedSignalsGlobal.length === 0) return getNearestRouteSignalName(stopIndex) || getNearestLoadedSignalName(stopIndex) || "No Signal Data";
+            if(!matchedSignalsGlobal || matchedSignalsGlobal.length === 0) return (loadedSignals && loadedSignals.length > 0) ? "No Signal" : "No Signal Data";
             let stopLatLng = currentPath[stopIndex];
             let foundSignalName = "No Signal";
             let nearbySignals = matchedSignalsGlobal.filter(s => {
@@ -936,7 +936,7 @@
                     if (signalBehind) { foundSignalName = signalBehind.signal.name; }
                 }
             }
-            return foundSignalName === "No Signal" ? (getNearestRouteSignalName(stopIndex) || getNearestLoadedSignalName(stopIndex) || foundSignalName) : foundSignalName;
+            return foundSignalName;
         }
 
         function getNearestRouteSignalName(stopIndex) {
@@ -969,18 +969,6 @@
             if (rawName) return rawName;
             const routeName = (route && route.name ? route.name : 'Route').toString().trim();
             return `${routeName} point ${idx + 1}`;
-        }
-
-        function getNearestLoadedSignalName(stopIndex) {
-            if (!currentPath || !currentPath[stopIndex] || !Array.isArray(loadedSignals) || loadedSignals.length === 0) return null;
-            const stopLatLng = currentPath[stopIndex];
-            let best = null;
-            loadedSignals.forEach(signal => {
-                if (!signal || !isFinite(signal.lat) || !isFinite(signal.lng) || !signal.name) return;
-                const distance = stopLatLng.distanceTo(L.latLng(signal.lat, signal.lng));
-                if (!best || distance < best.distance) best = { name: signal.name, distance };
-            });
-            return best ? best.name : null;
         }
 
         // --- SMART BULK UPLOAD LOGIC ---
@@ -1459,8 +1447,8 @@
                         name: rawName,
                         lat: point.lat,
                         lng: point.lng,
-                        sourceType: 'route',
-                        matchRadius: ROUTE_SIGNAL_MATCH_RADIUS_M
+                        sourceType: route.signalSourceType || 'route',
+                        matchRadius: route.signalMatchRadius || ROUTE_SIGNAL_MATCH_RADIUS_M
                     });
                 });
             });
@@ -1469,20 +1457,21 @@
 
         function updateFsdRoutesForCurrentPath() {
             const allRoutes = Array.isArray(fsdAllRouteFeatures) && fsdAllRouteFeatures.length ? fsdAllRouteFeatures : fsdRouteFeatures;
-            if (!allRoutes || allRoutes.length === 0) {
+            const displayRoutes = (allRoutes || []).filter(route => !route.isSignalReference);
+            if (!displayRoutes || displayRoutes.length === 0) {
                 fsdRouteFeatures = [];
-                fsdRouteMatchSummary = '';
+                fsdRouteMatchSummary = allRoutes && allRoutes.length ? 'Signal references loaded; no route overlay required.' : '';
                 renderFsdRoutes();
                 return;
             }
             if (!currentPath || currentPath.length < 2) {
-                fsdRouteFeatures = allRoutes;
+                fsdRouteFeatures = displayRoutes;
                 fsdRouteMatchSummary = 'No RTIS route selected yet; showing all uploaded route references.';
                 renderFsdRoutes();
                 return;
             }
 
-            const ranked = rankRoutesForTrainPath(allRoutes, currentPath);
+            const ranked = rankRoutesForTrainPath(displayRoutes, currentPath);
             let selected = ranked.filter(item => item.matchRatio >= 0.35 && item.avgDistance <= 1800).slice(0, 4);
             if (selected.length === 0) selected = ranked.filter(item => item.avgDistance <= 3500).slice(0, 3);
             if (selected.length === 0) selected = ranked.slice(0, Math.min(2, ranked.length));
@@ -1631,7 +1620,15 @@
                     pointNames.push(nameIdx >= 0 && cols[nameIdx] ? cols[nameIdx] : `${fileName} point ${coords.length}`);
                 }
             }
-            return coords.length >= 2 ? [{ name: fileName, coords, pointNames, format: 'Coordinate CSV' }] : [];
+            return coords.length >= 2 ? [{
+                name: fileName,
+                coords,
+                pointNames,
+                format: 'Coordinate CSV',
+                isSignalReference: true,
+                signalSourceType: 'signal-ref',
+                signalMatchRadius: SIGNAL_MATCH_RADIUS_M
+            }] : [];
         }
 
         function findHeaderIndex(headers, aliases) {
@@ -1740,7 +1737,15 @@
                         const rawName = nameKey ? row[nameKey] : '';
                         pointNames.push(rawName ? `${rawName}`.trim() : `${fileName}-${sheetName} point ${coords.length}`);
                     });
-                    if (coords.length >= 2) routes.push({ name: `${fileName}-${sheetName}`, coords, pointNames, format: 'Coordinate spreadsheet' });
+                    if (coords.length >= 2) routes.push({
+                        name: `${fileName}-${sheetName}`,
+                        coords,
+                        pointNames,
+                        format: 'Coordinate spreadsheet',
+                        isSignalReference: true,
+                        signalSourceType: 'signal-ref',
+                        signalMatchRadius: SIGNAL_MATCH_RADIUS_M
+                    });
                 });
             } catch (e) { console.error('Spreadsheet route parse error', e); }
             return routes;
