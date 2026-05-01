@@ -1124,7 +1124,7 @@
         }
 
         function removeRouteSignals(signals) {
-            return (signals || []).filter(signal => signal.sourceType !== 'route');
+            return (signals || []).filter(signal => signal.sourceType !== 'route' && signal.sourceType !== 'signal-ref');
         }
 
         function readWorkbookRows(arrayBuffer) {
@@ -1246,16 +1246,20 @@
                 }
 
                 if (allRoutes.length > 0) {
-                    fsdAllRouteFeatures = allRoutes;
+                    const signalReferenceRoutes = allRoutes.filter(route => route.isSignalReference);
+                    fsdAllRouteFeatures = allRoutes.filter(route => !route.isSignalReference);
                     updateFsdRoutesForCurrentPath();
                     const routeSignals = extractSignalsFromRoutes(getRouteSignalSourceRoutes());
+                    const signalReferenceSignals = extractSignalsFromRoutes(signalReferenceRoutes);
                     loadedSignals = removeRouteSignals(loadedSignals);
                     loadedSignals = mergeSignals(loadedSignals, routeSignals);
-                    const totalPointCount = fsdAllRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
+                    loadedSignals = mergeSignals(loadedSignals, signalReferenceSignals);
+                    const totalPointCount = allRoutes.reduce((sum, route) => sum + route.coords.length, 0);
                     const visiblePointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
                     const skipText = skipped7z ? ` ${skipped7z} 7Z file(s) skipped; extract them first.` : '';
-                    document.getElementById('sntStatus').innerText = `Processed ${fsdAllRouteFeatures.length} route(s), ${totalPointCount} point(s). Showing ${fsdRouteFeatures.length} suitable route(s), ${visiblePointCount} point(s), ${routeSignals.length} signal reference(s).${skipText}`;
-                    document.getElementById('signalStatus').innerText = `Route signals available: ${loadedSignals.length}.`;
+                    const signalText = signalReferenceSignals.length ? ` ${signalReferenceSignals.length} signal reference(s) loaded as Upload Signals (Ref).` : '';
+                    document.getElementById('sntStatus').innerText = `Processed ${fsdAllRouteFeatures.length} route(s), ${totalPointCount} point(s). Showing ${fsdRouteFeatures.length} suitable route(s), ${visiblePointCount} point(s), ${routeSignals.length + signalReferenceSignals.length} signal reference(s).${signalText}${skipText}`;
+                    document.getElementById('signalStatus').innerText = `Signal references available: ${loadedSignals.length}.`;
                     document.getElementById('signalStatus').style.color = '#00ff88';
                     document.getElementById('sntStatus').style.color = '#00ff88';
                     if (currentPath && currentPath.length > 0) {
@@ -1343,15 +1347,19 @@
                     routes.forEach(r => allRoutes.push(r));
                 }
                 if (allRoutes.length > 0) {
-                    fsdAllRouteFeatures = allRoutes;
+                    const signalReferenceRoutes = allRoutes.filter(route => route.isSignalReference);
+                    fsdAllRouteFeatures = allRoutes.filter(route => !route.isSignalReference);
                     updateFsdRoutesForCurrentPath();
                     const routeSignals = extractSignalsFromRoutes(getRouteSignalSourceRoutes());
+                    const signalReferenceSignals = extractSignalsFromRoutes(signalReferenceRoutes);
                     loadedSignals = removeRouteSignals(loadedSignals);
                     loadedSignals = mergeSignals(loadedSignals, routeSignals);
-                    const totalPointCount = fsdAllRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
+                    loadedSignals = mergeSignals(loadedSignals, signalReferenceSignals);
+                    const totalPointCount = allRoutes.reduce((sum, route) => sum + route.coords.length, 0);
                     const visiblePointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
-                    document.getElementById('fsdStatus').innerText = `Processed ${fsdAllRouteFeatures.length} FSD route(s), ${totalPointCount} point(s). Showing ${fsdRouteFeatures.length} suitable route(s), ${visiblePointCount} point(s), ${routeSignals.length} signal reference(s).`;
-                    document.getElementById('signalStatus').innerText = `Route signals available: ${loadedSignals.length}.`;
+                    const signalText = signalReferenceSignals.length ? ` ${signalReferenceSignals.length} signal reference(s) loaded as Upload Signals (Ref).` : '';
+                    document.getElementById('fsdStatus').innerText = `Processed ${fsdAllRouteFeatures.length} FSD route(s), ${totalPointCount} point(s). Showing ${fsdRouteFeatures.length} suitable route(s), ${visiblePointCount} point(s), ${routeSignals.length + signalReferenceSignals.length} signal reference(s).${signalText}`;
+                    document.getElementById('signalStatus').innerText = `Signal references available: ${loadedSignals.length}.`;
                     document.getElementById('signalStatus').style.color = '#00ff88';
                     document.getElementById('fsdStatus').style.color = '#00ff88';
                     if (currentPath && currentPath.length > 0) {
@@ -1373,6 +1381,8 @@
             fsdRouteFeatures = [];
             fsdRouteMatchSummary = '';
             fsdRouteLayerGroup.clearLayers();
+            loadedSignals = removeRouteSignals(loadedSignals);
+            matchedSignalsGlobal = [];
             document.getElementById('fsdStatus').innerText = "FSD references cleared.";
             document.getElementById('fsdStatus').style.color = '#bbb';
             document.getElementById('sntStatus').innerText = "Multiple Routes cleared.";
