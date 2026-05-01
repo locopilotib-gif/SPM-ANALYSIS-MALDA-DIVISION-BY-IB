@@ -920,7 +920,7 @@
         }
 
         function getSignalNameForStop(stopIndex) {
-            if(!matchedSignalsGlobal || matchedSignalsGlobal.length === 0) return getNearestRouteSignalName(stopIndex) || "No Signal Data";
+            if(!matchedSignalsGlobal || matchedSignalsGlobal.length === 0) return getNearestRouteSignalName(stopIndex) || getNearestLoadedSignalName(stopIndex) || "No Signal Data";
             let stopLatLng = currentPath[stopIndex];
             let foundSignalName = "No Signal";
             let nearbySignals = matchedSignalsGlobal.filter(s => {
@@ -936,7 +936,7 @@
                     if (signalBehind) { foundSignalName = signalBehind.signal.name; }
                 }
             }
-            return foundSignalName === "No Signal" ? (getNearestRouteSignalName(stopIndex) || foundSignalName) : foundSignalName;
+            return foundSignalName === "No Signal" ? (getNearestRouteSignalName(stopIndex) || getNearestLoadedSignalName(stopIndex) || foundSignalName) : foundSignalName;
         }
 
         function getNearestRouteSignalName(stopIndex) {
@@ -969,6 +969,18 @@
             if (rawName) return rawName;
             const routeName = (route && route.name ? route.name : 'Route').toString().trim();
             return `${routeName} point ${idx + 1}`;
+        }
+
+        function getNearestLoadedSignalName(stopIndex) {
+            if (!currentPath || !currentPath[stopIndex] || !Array.isArray(loadedSignals) || loadedSignals.length === 0) return null;
+            const stopLatLng = currentPath[stopIndex];
+            let best = null;
+            loadedSignals.forEach(signal => {
+                if (!signal || !isFinite(signal.lat) || !isFinite(signal.lng) || !signal.name) return;
+                const distance = stopLatLng.distanceTo(L.latLng(signal.lat, signal.lng));
+                if (!best || distance < best.distance) best = { name: signal.name, distance };
+            });
+            return best ? best.name : null;
         }
 
         // --- SMART BULK UPLOAD LOGIC ---
@@ -1607,14 +1619,26 @@
             const latIdx = headers.findIndex(h => ['lat', 'latitude', 'y'].includes(h));
             const lngIdx = headers.findIndex(h => ['lng', 'long', 'longitude', 'x'].includes(h));
             if (latIdx < 0 || lngIdx < 0) return [];
+            const nameIdx = findHeaderIndex(headers, ['event', 'signal name', 'signal', 'name', 'location', 'location name', 'station', 'mast', 'ohe mast']);
             const coords = [];
+            const pointNames = [];
             for (let i = 1; i < rows.length; i++) {
                 const cols = rows[i].map(v => String(v || '').trim());
                 const lat = parseFloat(cols[latIdx]);
                 const lng = parseFloat(cols[lngIdx]);
-                if (isFinite(lat) && isFinite(lng)) coords.push(L.latLng(lat, lng));
+                if (isFinite(lat) && isFinite(lng)) {
+                    coords.push(L.latLng(lat, lng));
+                    pointNames.push(nameIdx >= 0 && cols[nameIdx] ? cols[nameIdx] : `${fileName} point ${coords.length}`);
+                }
             }
-            return coords.length >= 2 ? [{ name: fileName, coords }] : [];
+            return coords.length >= 2 ? [{ name: fileName, coords, pointNames, format: 'Coordinate CSV' }] : [];
+        }
+
+        function findHeaderIndex(headers, aliases) {
+            return headers.findIndex(header => {
+                const clean = String(header || '').trim().toLowerCase();
+                return aliases.includes(clean) || aliases.some(alias => clean.replace(/\s+/g, '').includes(alias.replace(/\s+/g, '')));
+            });
         }
 
         function parseCsvRows(csvText) {
@@ -1704,9 +1728,19 @@
                     const keys = Object.keys(rows[0]);
                     const latKey = keys.find(k => ['lat', 'latitude', 'y'].includes(k.toString().trim().toLowerCase()));
                     const lngKey = keys.find(k => ['lng', 'long', 'longitude', 'x'].includes(k.toString().trim().toLowerCase()));
+                    const nameKey = keys.find(k => ['event', 'signal name', 'signal', 'name', 'location', 'location name', 'station', 'mast', 'ohe mast'].includes(k.toString().trim().toLowerCase()));
                     if (!latKey || !lngKey) return;
-                    const coords = rows.map(r => L.latLng(parseFloat(r[latKey]), parseFloat(r[lngKey]))).filter(p => isFinite(p.lat) && isFinite(p.lng));
-                    if (coords.length >= 2) routes.push({ name: `${fileName}-${sheetName}`, coords });
+                    const coords = [];
+                    const pointNames = [];
+                    rows.forEach(row => {
+                        const lat = parseFloat(row[latKey]);
+                        const lng = parseFloat(row[lngKey]);
+                        if (!isFinite(lat) || !isFinite(lng)) return;
+                        coords.push(L.latLng(lat, lng));
+                        const rawName = nameKey ? row[nameKey] : '';
+                        pointNames.push(rawName ? `${rawName}`.trim() : `${fileName}-${sheetName} point ${coords.length}`);
+                    });
+                    if (coords.length >= 2) routes.push({ name: `${fileName}-${sheetName}`, coords, pointNames, format: 'Coordinate spreadsheet' });
                 });
             } catch (e) { console.error('Spreadsheet route parse error', e); }
             return routes;
