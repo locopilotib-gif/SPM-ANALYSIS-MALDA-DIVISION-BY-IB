@@ -705,6 +705,7 @@
         var globalMPSUsed = 0;
         const SIGNAL_MATCH_RADIUS_M = 150;
         const ROUTE_SIGNAL_MATCH_RADIUS_M = 20000;
+        const ROUTE_DISPLAY_MAX_POINTS = 1200;
         
         // --- DEFINING THE SIGNAL ICON (SVG DATA URI) ---
         const signalSvgData = "data:image/svg+xml;base64," + btoa(`
@@ -959,7 +960,6 @@
 
         function getRouteSignalSourceRoutes() {
             if (Array.isArray(fsdAllRouteFeatures) && fsdAllRouteFeatures.length > 0) return fsdAllRouteFeatures;
-            if (Array.isArray(fsdRouteFeatures) && fsdRouteFeatures.length > 0) return fsdRouteFeatures;
             return [];
         }
 
@@ -1261,8 +1261,12 @@
                     updateFsdRoutesForCurrentPath();
                     const routeSignals = extractSignalsFromRoutes(getRouteSignalSourceRoutes());
                     const signalReferenceSignals = extractSignalsFromRoutes(signalReferenceRoutes);
-                    loadedSignals = signalReferenceSignals.length > 0 ? makePlainSignalReferences(signalReferenceSignals) : removeRouteSignals(loadedSignals);
-                    loadedSignals = mergeSignals(loadedSignals, routeSignals);
+                    if (signalReferenceSignals.length > 0) {
+                        loadedSignals = makePlainSignalReferences(signalReferenceSignals);
+                    } else {
+                        loadedSignals = removeRouteSignals(loadedSignals);
+                        loadedSignals = mergeSignals(loadedSignals, routeSignals);
+                    }
                     const totalPointCount = allRoutes.reduce((sum, route) => sum + route.coords.length, 0);
                     const visiblePointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
                     const skipText = skipped7z ? ` ${skipped7z} 7Z file(s) skipped; extract them first.` : '';
@@ -1361,8 +1365,12 @@
                     updateFsdRoutesForCurrentPath();
                     const routeSignals = extractSignalsFromRoutes(getRouteSignalSourceRoutes());
                     const signalReferenceSignals = extractSignalsFromRoutes(signalReferenceRoutes);
-                    loadedSignals = signalReferenceSignals.length > 0 ? makePlainSignalReferences(signalReferenceSignals) : removeRouteSignals(loadedSignals);
-                    loadedSignals = mergeSignals(loadedSignals, routeSignals);
+                    if (signalReferenceSignals.length > 0) {
+                        loadedSignals = makePlainSignalReferences(signalReferenceSignals);
+                    } else {
+                        loadedSignals = removeRouteSignals(loadedSignals);
+                        loadedSignals = mergeSignals(loadedSignals, routeSignals);
+                    }
                     const totalPointCount = allRoutes.reduce((sum, route) => sum + route.coords.length, 0);
                     const visiblePointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
                     const signalText = signalReferenceSignals.length ? ` ${signalReferenceSignals.length} signal reference(s) loaded as Upload Signals (Ref).` : '';
@@ -1444,10 +1452,21 @@
             fsdRouteFeatures.forEach((route, i) => {
                 const color = getRouteColor(i);
                 const scoreText = route.matchScore ? `<br>Match: ${Math.round(route.matchScore.matchRatio * 100)}% / Avg ${Math.round(route.matchScore.avgDistance)} m` : '';
-                L.polyline(route.coords, { color, weight: route.matchScore ? 5 : 3, opacity: route.matchScore ? 0.92 : 0.58, dashArray: route.matchScore ? null : '8 4' })
+                const displayCoords = limitRouteDisplayCoords(route.coords || []);
+                L.polyline(displayCoords, { color, weight: route.matchScore ? 5 : 3, opacity: route.matchScore ? 0.92 : 0.58, dashArray: route.matchScore ? null : '8 4' })
                     .bindPopup(`<b>FSD Route</b><br>${route.name}<br>Points: ${route.coords.length}${route.format ? `<br>Format: ${route.format}` : ''}${scoreText}`)
                     .addTo(fsdRouteLayerGroup);
             });
+        }
+
+        function limitRouteDisplayCoords(coords) {
+            if (!coords || coords.length <= ROUTE_DISPLAY_MAX_POINTS) return coords || [];
+            const out = [];
+            const step = (coords.length - 1) / (ROUTE_DISPLAY_MAX_POINTS - 1);
+            for (let i = 0; i < ROUTE_DISPLAY_MAX_POINTS; i++) {
+                out.push(coords[Math.round(i * step)]);
+            }
+            return out;
         }
 
         function getRouteColor(i) {
@@ -1474,7 +1493,7 @@
         }
 
         function updateFsdRoutesForCurrentPath() {
-            const allRoutes = Array.isArray(fsdAllRouteFeatures) && fsdAllRouteFeatures.length ? fsdAllRouteFeatures : fsdRouteFeatures;
+            const allRoutes = Array.isArray(fsdAllRouteFeatures) ? fsdAllRouteFeatures : [];
             const displayRoutes = (allRoutes || []).filter(route => !route.isSignalReference);
             if (!displayRoutes || displayRoutes.length === 0) {
                 fsdRouteFeatures = [];
@@ -1508,7 +1527,7 @@
         }
 
         function rankRoutesForTrainPath(routes, trainPath) {
-            const samples = samplePoints(trainPath, 48);
+            const samples = samplePoints(trainPath, 30);
             return (routes || []).map(route => {
                 const routeCoords = route.coords || [];
                 if (routeCoords.length < 2 || samples.length === 0) {
@@ -1550,7 +1569,7 @@
 
         function nearestDistanceToRoute(point, routeCoords) {
             let min = Infinity;
-            const step = Math.max(1, Math.floor(routeCoords.length / 900));
+            const step = Math.max(1, Math.floor(routeCoords.length / 450));
             for (let i = 0; i < routeCoords.length; i += step) {
                 const d = point.distanceTo(routeCoords[i]);
                 if (d < min) min = d;
