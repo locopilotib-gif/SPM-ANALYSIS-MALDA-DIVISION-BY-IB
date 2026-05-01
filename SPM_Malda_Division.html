@@ -1127,6 +1127,16 @@
             return (signals || []).filter(signal => signal.sourceType !== 'route' && signal.sourceType !== 'signal-ref');
         }
 
+        function makePlainSignalReferences(signals) {
+            return (signals || [])
+                .map(signal => ({
+                    name: signal.name,
+                    lat: parseFloat(signal.lat),
+                    lng: parseFloat(signal.lng)
+                }))
+                .filter(signal => signal.name && isFinite(signal.lat) && isFinite(signal.lng));
+        }
+
         function readWorkbookRows(arrayBuffer) {
             const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
             let rows = [];
@@ -1251,9 +1261,8 @@
                     updateFsdRoutesForCurrentPath();
                     const routeSignals = extractSignalsFromRoutes(getRouteSignalSourceRoutes());
                     const signalReferenceSignals = extractSignalsFromRoutes(signalReferenceRoutes);
-                    loadedSignals = removeRouteSignals(loadedSignals);
+                    loadedSignals = signalReferenceSignals.length > 0 ? makePlainSignalReferences(signalReferenceSignals) : removeRouteSignals(loadedSignals);
                     loadedSignals = mergeSignals(loadedSignals, routeSignals);
-                    loadedSignals = mergeSignals(loadedSignals, signalReferenceSignals);
                     const totalPointCount = allRoutes.reduce((sum, route) => sum + route.coords.length, 0);
                     const visiblePointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
                     const skipText = skipped7z ? ` ${skipped7z} 7Z file(s) skipped; extract them first.` : '';
@@ -1352,9 +1361,8 @@
                     updateFsdRoutesForCurrentPath();
                     const routeSignals = extractSignalsFromRoutes(getRouteSignalSourceRoutes());
                     const signalReferenceSignals = extractSignalsFromRoutes(signalReferenceRoutes);
-                    loadedSignals = removeRouteSignals(loadedSignals);
+                    loadedSignals = signalReferenceSignals.length > 0 ? makePlainSignalReferences(signalReferenceSignals) : removeRouteSignals(loadedSignals);
                     loadedSignals = mergeSignals(loadedSignals, routeSignals);
-                    loadedSignals = mergeSignals(loadedSignals, signalReferenceSignals);
                     const totalPointCount = allRoutes.reduce((sum, route) => sum + route.coords.length, 0);
                     const visiblePointCount = fsdRouteFeatures.reduce((sum, route) => sum + route.coords.length, 0);
                     const signalText = signalReferenceSignals.length ? ` ${signalReferenceSignals.length} signal reference(s) loaded as Upload Signals (Ref).` : '';
