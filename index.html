@@ -345,16 +345,18 @@
 
     singleBtn.addEventListener('click', (event) => {
       event.preventDefault();
-      window.location.href = docs.single;
+      openMode('single');
+      history.replaceState(null, '', '#single');
     });
     bulkBtn.addEventListener('click', (event) => {
       event.preventDefault();
-      window.location.href = docs.bulk;
+      openMode('bulk');
+      history.replaceState(null, '', '#bulk');
     });
     refreshBtn.addEventListener('click', () => openMode(activeMode));
     frame.addEventListener('load', () => setLoading(false));
 
-    openMode('single');
+    openMode(location.hash === '#bulk' ? 'bulk' : 'single');
   </script>
 </body>
 </html>

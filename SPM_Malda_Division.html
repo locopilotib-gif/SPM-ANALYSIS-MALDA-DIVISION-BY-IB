@@ -708,6 +708,7 @@
         const SIGNAL_MATCH_RADIUS_M = 150;
         const ROUTE_SIGNAL_MATCH_RADIUS_M = 20000;
         const ROUTE_DISPLAY_MAX_POINTS = 1200;
+        const PATH_GRID_CELL_DEG = 0.025;
         
         // --- DEFINING THE SIGNAL ICON (SVG DATA URI) ---
         const signalSvgData = "data:image/svg+xml;base64," + btoa(`
@@ -2641,12 +2642,56 @@
                 }
             }
         }
+        function createPathSpatialIndex(trainPath) {
+            const cells = new Map();
+            (trainPath || []).forEach((point, idx) => {
+                if (!point || !isFinite(point.lat) || !isFinite(point.lng)) return;
+                const key = getPathGridKey(point.lat, point.lng);
+                if (!cells.has(key)) cells.set(key, []);
+                cells.get(key).push(idx);
+            });
+            return { path: trainPath || [], cells };
+        }
+
+        function getPathGridKey(lat, lng) {
+            return `${Math.floor(lat / PATH_GRID_CELL_DEG)}:${Math.floor(lng / PATH_GRID_CELL_DEG)}`;
+        }
+
+        function findClosestPathPointWithin(sigLatLng, pathIndex, maxDistance) {
+            const latCell = Math.floor(sigLatLng.lat / PATH_GRID_CELL_DEG);
+            const lngCell = Math.floor(sigLatLng.lng / PATH_GRID_CELL_DEG);
+            const lngCellMeters = Math.max(300, 111320 * Math.cos(sigLatLng.lat * Math.PI / 180) * PATH_GRID_CELL_DEG);
+            const cellMeters = Math.max(300, Math.min(111320 * PATH_GRID_CELL_DEG, lngCellMeters));
+            const maxRing = Math.max(2, Math.ceil(maxDistance / cellMeters) + 1);
+            let closestDist = Infinity;
+            let closestIndex = -1;
+
+            for (let ring = 0; ring <= maxRing; ring++) {
+                for (let dLat = -ring; dLat <= ring; dLat++) {
+                    for (let dLng = -ring; dLng <= ring; dLng++) {
+                        if (Math.max(Math.abs(dLat), Math.abs(dLng)) !== ring) continue;
+                        const candidates = pathIndex.cells.get(`${latCell + dLat}:${lngCell + dLng}`);
+                        if (!candidates) continue;
+                        candidates.forEach(idx => {
+                            const d = sigLatLng.distanceTo(pathIndex.path[idx]);
+                            if (d < closestDist) {
+                                closestDist = d;
+                                closestIndex = idx;
+                            }
+                        });
+                    }
+                }
+            }
+            return { closestDist, closestIndex };
+        }
+
         function filterAndMatchSignals(signals, trainPath) {
             matchedSignalsGlobal = [];
+            const pathIndex = createPathSpatialIndex(trainPath);
             signals.forEach(signal => {
-                let sigLatLng = L.latLng(signal.lat, signal.lng); let closestDist = Infinity; let closestIndex = -1;
-                for (let i = 0; i < trainPath.length; i++) { let d = sigLatLng.distanceTo(trainPath[i]); if (d < closestDist) { closestDist = d; closestIndex = i; } }
+                const sigLatLng = L.latLng(signal.lat, signal.lng);
                 const matchRadius = signal.matchRadius || SIGNAL_MATCH_RADIUS_M;
+                const { closestDist, closestIndex } = findClosestPathPointWithin(sigLatLng, pathIndex, matchRadius);
                 if (closestDist <= matchRadius && closestIndex !== -1) { matchedSignalsGlobal.push({ signal: signal, pathIndex: closestIndex, distance: closestDist, crossingTime: trainPath[closestIndex].time, crossingSpeed: trainPath[closestIndex].speed }); }
             });
             const hasRouteFallback = getRouteSignalSourceRoutes().some(route => route.coords && route.coords.length > 0);
